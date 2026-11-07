@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { customerServices } from "../../../lib/data/services";
+import ConfirmDialog from "../../components/confirm-dialog";
+import { useAppFeedback } from "../../components/app-feedback";
+import { useCustomerServices } from "../../components/use-customer-services";
 import { customerBarbers, formatTanggal, formatRupiah } from "../data";
 import { useCustomerPrototype } from "../components/customer-context";
 
@@ -12,8 +14,9 @@ export default function CustomerBookingsPage() {
     clearBookingDraft,
     storageError,
   } = useCustomerPrototype();
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [cancelError, setCancelError] = useState("");
+  const { showToast } = useAppFeedback();
+  const customerServices = useCustomerServices();
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   const service = customerServices.find(
     (item) => item.id === bookingDraft?.serviceId,
@@ -69,6 +72,14 @@ export default function CustomerBookingsPage() {
                 <dd>Bukan booking tersimpan atau aktif</dd>
               </div>
               <div>
+                <dt>Status Pembayaran</dt>
+                <dd>
+                  {bookingDraft.paymentStatus === "paid"
+                    ? "Sudah Dibayar (simulasi)"
+                    : "Belum Dibayar"}
+                </dd>
+              </div>
+              <div>
                 <dt>Kapster</dt>
                 <dd>{barber?.name ?? "Belum dipilih"}</dd>
               </div>
@@ -98,7 +109,7 @@ export default function CustomerBookingsPage() {
               </Link>
               <button
                 className="customer-danger-button"
-                onClick={() => setConfirmDelete(true)}
+                onClick={() => setConfirmCancel(true)}
                 type="button"
               >
                 Batalkan
@@ -121,51 +132,30 @@ export default function CustomerBookingsPage() {
         </div>
       </section>
 
-      {confirmDelete && (
-        <div className="customer-modal-backdrop">
-          <section
-            aria-labelledby="cancel-draft-title"
-            aria-modal="true"
-            className="customer-modal"
-            role="dialog"
-          >
-            <h2 id="cancel-draft-title">Batalkan draft booking?</h2>
-            <p>
-              Pilihan layanan dan jadwal sementara akan dihapus dari prototipe.
-              Belum ada booking yang dikirim.
-            </p>
-            <div className="customer-card-actions">
-              <button
-                className="customer-outline-button"
-                onClick={() => setConfirmDelete(false)}
-                type="button"
-              >
-                Kembali
-              </button>
-              <button
-                className="customer-danger-button"
-                onClick={() => {
-                  if (clearBookingDraft()) {
-                    setConfirmDelete(false);
-                    setCancelError("");
-                  } else {
-                    setCancelError(
-                      "Draft belum dapat dihapus dari penyimpanan browser.",
-                    );
-                  }
-                }}
-                type="button"
-              >
-                Ya, batalkan
-              </button>
-            </div>
-            {cancelError && (
-              <p className="customer-form-error" role="alert">
-                {cancelError}
-              </p>
-            )}
-          </section>
-        </div>
+      {confirmCancel && (
+        <ConfirmDialog
+          title="Konfirmasi Pembatalan"
+          description="Apakah Anda yakin ingin membatalkan booking draft ini?"
+          detail={`Pilihan layanan dan jadwal sementara${bookingDraft ? ` untuk draft ${bookingDraft.reference}` : ""} akan dihapus. Belum ada booking yang dikirim.`}
+          confirmLabel="Ya, Batalkan"
+          onClose={() => setConfirmCancel(false)}
+          onConfirm={() => {
+            if (clearBookingDraft()) {
+              showToast(
+                "Draft Booking Dibatalkan",
+                "Draft booking berhasil dibatalkan.",
+                "success",
+              );
+              return true;
+            }
+            showToast(
+              "Pembatalan Gagal",
+              storageError ?? "Draft tidak dapat dihapus dari penyimpanan browser.",
+              "error",
+            );
+            return false;
+          }}
+        />
       )}
     </div>
   );

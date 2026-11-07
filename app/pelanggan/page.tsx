@@ -1,12 +1,24 @@
+"use client";
+
 import Link from "next/link";
-import { customerServices, featuredServiceIds } from "../../lib/data/services";
+import { useCustomerServices } from "../components/use-customer-services";
 import { formatRupiah } from "./data";
 
-const featuredServices = featuredServiceIds
-  .map((id) => customerServices.find((service) => service.id === id))
-  .filter((service) => service !== undefined);
+const featuredServiceIds = [
+  "regular-haircut",
+  "premium-haircut",
+  "full-service",
+  "hair-styling",
+  "hair-colour",
+  "home-service",
+];
 
 export default function CustomerHomePage() {
+  const customerServices = useCustomerServices();
+  const featuredServices = featuredServiceIds
+    .map((id) => customerServices.find((service) => service.id === id))
+    .filter((service) => service !== undefined);
+
   return (
     <div className="customer-page customer-home">
       <header className="customer-page-heading">

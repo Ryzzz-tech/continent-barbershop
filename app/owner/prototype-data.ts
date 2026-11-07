@@ -4,8 +4,10 @@ import type {
   OwnerPrototypeData,
   OwnerPrototypeTransaction,
 } from "./prototype-types";
+import { customerServices } from "../../lib/data/services";
 
-export const OWNER_STORAGE_KEY = "continent-barbershop-owner-prototype-v1";
+export const OWNER_STORAGE_KEY = "continent-barbershop-owner-prototype-v2";
+export const LEGACY_OWNER_STORAGE_KEY = "continent-barbershop-owner-prototype-v1";
 
 export const initialOwnerEmployees: OwnerEmployee[] = [
   { id: "owner-kapster-1", name: "Kapster 1", role: "Kapster", phone: "0812-0000-0001", username: "kapster1", hasPassword: true },
@@ -16,9 +18,13 @@ export const initialOwnerEmployees: OwnerEmployee[] = [
 ];
 
 export const initialOwnerCatalog: OwnerCatalogItem[] = [
-  { id: "owner-potong-rambut", name: "Potong Rambut", kind: "Layanan", price: 35000 },
-  { id: "owner-potong-cuci", name: "Potong + Cuci Rambut", kind: "Layanan", price: 50000 },
-  { id: "owner-cukur-jenggot", name: "Cukur Jenggot", kind: "Layanan", price: 20000 },
+  ...customerServices.map((service) => ({
+    id: service.id,
+    name: service.name,
+    kind: "Layanan" as const,
+    price: service.price,
+    ...(service.description ? { description: service.description } : {}),
+  })),
   { id: "owner-pomade", name: "Pomade", kind: "Produk", price: 25000, stock: 24 },
   { id: "owner-hair-tonic", name: "Hair Tonic", kind: "Produk", price: 30000, stock: 12 },
   { id: "owner-shampoo", name: "Shampoo", kind: "Produk", price: null, stock: 18 },
@@ -60,6 +66,7 @@ function isCatalogItem(value: unknown): value is OwnerCatalogItem {
     typeof value.name === "string" &&
     (value.kind === "Layanan" || value.kind === "Produk") &&
     (value.price === null || (typeof value.price === "number" && Number.isFinite(value.price))) &&
+    (!("description" in value) || typeof value.description === "string") &&
     (value.kind === "Layanan"
       ? !("stock" in value)
       : Number.isSafeInteger(value.stock) && Number(value.stock) >= 0);

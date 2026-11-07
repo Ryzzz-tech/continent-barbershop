@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import ConfirmDialog from "../../components/confirm-dialog";
+import { useAppFeedback } from "../../components/app-feedback";
 import { formatTanggal } from "../../pelanggan/data";
 import { useKapsterPrototype } from "../kapster-context";
 import {
@@ -12,10 +14,15 @@ import {
 } from "../kapster-ui";
 
 export default function KapsterScheduleList() {
-  const { schedules, deleteSchedule, announce } = useKapsterPrototype();
+  const { schedules, deleteSchedule } = useKapsterPrototype();
+  const { showToast } = useAppFeedback();
   const [dateFilter, setDateFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("");
+  const [scheduleToDelete, setScheduleToDelete] = useState<{
+    id: string;
+    date: string;
+  } | null>(null);
   const filteredSchedules = useMemo(
     () =>
       schedules
@@ -34,15 +41,22 @@ export default function KapsterScheduleList() {
     (schedule) => schedule.status === "unavailable",
   ).length;
 
-  function removeSchedule(id: string) {
-    const schedule = schedules.find((item) => item.id === id);
-    if (!schedule) return;
-    if (!window.confirm(`Hapus jadwal ${formatTanggal(schedule.date)} dari prototipe?`)) {
-      return;
+  function removeSchedule() {
+    if (!scheduleToDelete) return false;
+    if (deleteSchedule(scheduleToDelete.id)) {
+      showToast(
+        "Jadwal Berhasil Dihapus",
+        `Jadwal ${formatTanggal(scheduleToDelete.date)} berhasil dihapus.`,
+        "success",
+      );
+      return true;
     }
-    if (deleteSchedule(id)) {
-      announce("Jadwal dihapus dari state prototipe.");
-    }
+    showToast(
+      "Penghapusan Gagal",
+      "Jadwal tidak ditemukan dan tidak dapat dihapus.",
+      "error",
+    );
+    return false;
   }
 
   return (
@@ -157,7 +171,12 @@ export default function KapsterScheduleList() {
                       </Link>
                       <button
                         className="kapster-row-action kapster-row-action--danger"
-                        onClick={() => removeSchedule(schedule.id)}
+                        onClick={() =>
+                          setScheduleToDelete({
+                            id: schedule.id,
+                            date: schedule.date,
+                          })
+                        }
                         type="button"
                       >
                         Hapus
@@ -176,6 +195,14 @@ export default function KapsterScheduleList() {
           </div>
         )}
       </section>
+      {scheduleToDelete && (
+        <ConfirmDialog
+          title="Konfirmasi Penghapusan"
+          description={`Apakah Anda yakin ingin menghapus jadwal ${formatTanggal(scheduleToDelete.date)}?`}
+          onClose={() => setScheduleToDelete(null)}
+          onConfirm={removeSchedule}
+        />
+      )}
     </div>
   );
 }

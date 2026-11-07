@@ -1,6 +1,6 @@
 "use client";
 
-import { customerServices } from "../../../lib/data/services";
+import { getCustomerServices } from "../../owner/owner-store";
 import { customerBarbers, isValidDateValue, isValidTimeValue } from "../data";
 
 const STORAGE_KEY = "continent-barbershop.booking-draft.v1";
@@ -16,6 +16,11 @@ export type BookingDraft = BookingDraftFields & {
   reference: string;
   price: number;
   total: number;
+  paymentStatus: "unpaid" | "paid";
+};
+
+type StoredBookingDraft = Omit<BookingDraft, "paymentStatus"> & {
+  paymentStatus?: BookingDraft["paymentStatus"];
 };
 
 export type BookingDraftSnapshot = {
@@ -36,15 +41,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isDraft(value: unknown): value is BookingDraft {
+function isDraft(value: unknown): value is StoredBookingDraft {
   if (!isRecord(value)) return false;
   const draft = value;
-  const service =
-    typeof draft.serviceId === "string"
-      ? customerServices.find((item) => item.id === draft.serviceId)
-      : undefined;
-  const serviceIdIsValid =
-    draft.serviceId === "" || service !== undefined;
+  const serviceIdIsValid = typeof draft.serviceId === "string";
   const barberIdIsValid =
     draft.barberId === "" ||
     (typeof draft.barberId === "string" &&
@@ -55,8 +55,6 @@ function isDraft(value: unknown): value is BookingDraft {
   const timeIsValid =
     draft.time === "" ||
     (typeof draft.time === "string" && isValidTimeValue(draft.time));
-  const price = service?.price ?? 0;
-
   return (
     typeof draft.reference === "string" &&
     /^draft-[0-9a-f-]{36}$/i.test(draft.reference) &&
@@ -64,10 +62,13 @@ function isDraft(value: unknown): value is BookingDraft {
     barberIdIsValid &&
     dateIsValid &&
     timeIsValid &&
-    typeof draft.price === "number" &&
-    draft.price === price &&
-    typeof draft.total === "number" &&
-    draft.total === price
+    Number.isSafeInteger(draft.price) &&
+    Number(draft.price) >= 0 &&
+    Number.isSafeInteger(draft.total) &&
+    draft.total === draft.price &&
+    (draft.paymentStatus === undefined ||
+      draft.paymentStatus === "unpaid" ||
+      draft.paymentStatus === "paid")
   );
 }
 
@@ -102,7 +103,10 @@ function hydrateSnapshot() {
   }
 
   if (isDraft(parsed)) {
-    snapshot = { draft: parsed, error: null };
+    snapshot = {
+      draft: { ...parsed, paymentStatus: parsed.paymentStatus ?? "unpaid" },
+      error: null,
+    };
     return;
   }
 
@@ -138,15 +142,31 @@ function createReference() {
 
 export function saveBookingDraft(fields: BookingDraftFields) {
   hydrateSnapshot();
-  const service = customerServices.find(
+  const service = getCustomerServices().find(
     (item) => item.id === fields.serviceId,
   );
+  if (fields.serviceId && !service) {
+    snapshot = {
+      ...snapshot,
+      error: "Layanan tidak tersedia lagi pada katalog.",
+    };
+    notify();
+    return false;
+  }
   const price = service?.price ?? 0;
   const draft: BookingDraft = {
     ...fields,
     reference: snapshot.draft?.reference ?? createReference(),
     price,
     total: price,
+    paymentStatus:
+      snapshot.draft &&
+      snapshot.draft.serviceId === fields.serviceId &&
+      snapshot.draft.barberId === fields.barberId &&
+      snapshot.draft.date === fields.date &&
+      snapshot.draft.time === fields.time
+        ? snapshot.draft.paymentStatus
+        : "unpaid",
   };
 
   if (!isDraft(draft)) {
@@ -172,6 +192,34 @@ export function saveBookingDraft(fields: BookingDraftFields) {
     notify();
     return false;
   }
+}
+
+export function markBookingDraftPaid():
+  | "paid"
+  | "already-paid"
+  | "missing"
+  | "storage-error" {
+  hydrateSnapshot();
+  if (!snapshot.draft) return "missing";
+  if (snapshot.draft.paymentStatus === "paid") return "already-paid";
+  if (typeof window === "undefined") return "storage-error";
+
+  const draft = { ...snapshot.draft, paymentStatus: "paid" as const };
+  try {
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+  } catch (error) {
+    if (!isStorageException(error)) throw error;
+    snapshot = {
+      ...snapshot,
+      error: "Status pembayaran tidak dapat disimpan ke penyimpanan sesi browser.",
+    };
+    notify();
+    return "storage-error";
+  }
+
+  snapshot = { draft, error: null };
+  notify();
+  return "paid";
 }
 
 export function clearBookingDraft() {

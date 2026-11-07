@@ -12,11 +12,18 @@ type CatalogValues = {
   kind: OwnerCatalogKind | "";
   price: string;
   stock: string;
+  description: string;
 };
 
 type CatalogField = keyof CatalogValues;
 
-const blankValues: CatalogValues = { name: "", kind: "", price: "", stock: "" };
+const blankValues: CatalogValues = {
+  name: "",
+  kind: "",
+  price: "",
+  stock: "",
+  description: "",
+};
 
 export default function OwnerCatalogForm({ itemId }: { itemId?: string }) {
   const router = useRouter();
@@ -28,6 +35,7 @@ export default function OwnerCatalogForm({ itemId }: { itemId?: string }) {
         kind: item.kind,
         price: item.price === null ? "" : String(item.price),
         stock: item.kind === "Produk" ? String(item.stock ?? 0) : "",
+        description: item.description ?? "",
       }
     : blankValues);
   const [errors, setErrors] = useState<Partial<Record<CatalogField, string>>>({});
@@ -95,6 +103,9 @@ export default function OwnerCatalogForm({ itemId }: { itemId?: string }) {
       kind: values.kind,
       price,
       ...(values.kind === "Produk" ? { stock } : {}),
+      ...(values.kind === "Layanan" && values.description.trim()
+        ? { description: values.description.trim() }
+        : {}),
     };
     const saved = itemId
       ? updateCatalogItem(savedItem)
@@ -118,7 +129,8 @@ export default function OwnerCatalogForm({ itemId }: { itemId?: string }) {
         description="Isi data berikut untuk menambah atau mengubah layanan & produk."
       />
       <OwnerPrototypeNote>
-        Harga dan stok di halaman ini adalah data prototipe Owner, belum mengubah katalog Pelanggan atau sistem penjualan.
+        Perubahan layanan langsung digunakan pada katalog dan form booking Pelanggan.
+        Data produk tetap dikelola terpisah dari katalog layanan.
       </OwnerPrototypeNote>
       <form className="cashier-form-panel owner-catalog-form" onSubmit={submit} noValidate>
         <div className="cashier-field cashier-field--full">
@@ -163,6 +175,18 @@ export default function OwnerCatalogForm({ itemId }: { itemId?: string }) {
           />
           {errors.price && <span className="cashier-field-error" id="owner-catalog-price-error">{errors.price}</span>}
         </div>
+        {values.kind === "Layanan" && (
+          <div className="cashier-field cashier-field--full">
+            <label htmlFor="owner-catalog-description">Deskripsi (opsional)</label>
+            <textarea
+              id="owner-catalog-description"
+              onChange={(event) => updateField("description", event.target.value)}
+              placeholder="Informasi layanan untuk pelanggan"
+              rows={3}
+              value={values.description}
+            />
+          </div>
+        )}
         {values.kind === "Produk" && (
           <div className="cashier-field">
             <label htmlFor="owner-catalog-stock">Stok</label>

@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import ConfirmDialog from "../../components/confirm-dialog";
+import { useAppFeedback } from "../../components/app-feedback";
 import { useCashierPrototype } from "../cashier-context";
 import { CashierPageHeading, CashierPrototypeNote } from "../cashier-ui";
 
 export default function CashierCustomerList() {
-  const { customers, deleteCustomer, announce } = useCashierPrototype();
+  const { customers, deleteCustomer } = useCashierPrototype();
+  const { showToast } = useAppFeedback();
   const [query, setQuery] = useState("");
+  const [customerToDelete, setCustomerToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const filteredCustomers = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("id-ID");
     if (!normalizedQuery) return customers;
@@ -16,13 +23,22 @@ export default function CashierCustomerList() {
     );
   }, [customers, query]);
 
-  function removeCustomer(customerId: string, customerName: string) {
-    if (!window.confirm(`Hapus data pelanggan "${customerName}" dari prototipe?`)) {
-      return;
+  function removeCustomer() {
+    if (!customerToDelete) return false;
+    if (deleteCustomer(customerToDelete.id)) {
+      showToast(
+        "Data Berhasil Dihapus",
+        `Data pelanggan ${customerToDelete.name} berhasil dihapus.`,
+        "success",
+      );
+      return true;
     }
-    if (deleteCustomer(customerId)) {
-      announce("Data pelanggan dihapus dari state prototipe.");
-    }
+    showToast(
+      "Penghapusan Gagal",
+      "Data pelanggan tidak ditemukan dan tidak dapat dihapus.",
+      "error",
+    );
+    return false;
   }
 
   return (
@@ -77,7 +93,12 @@ export default function CashierCustomerList() {
                       </Link>
                       <button
                         className="cashier-row-action cashier-row-action--danger"
-                        onClick={() => removeCustomer(customer.id, customer.name)}
+                        onClick={() =>
+                          setCustomerToDelete({
+                            id: customer.id,
+                            name: customer.name,
+                          })
+                        }
                         type="button"
                       >
                         Hapus
@@ -106,6 +127,14 @@ export default function CashierCustomerList() {
           </div>
         )}
       </section>
+      {customerToDelete && (
+        <ConfirmDialog
+          title="Konfirmasi Penghapusan"
+          description={`Apakah Anda yakin ingin menghapus data pelanggan "${customerToDelete.name}"?`}
+          onClose={() => setCustomerToDelete(null)}
+          onConfirm={removeCustomer}
+        />
+      )}
     </div>
   );
 }

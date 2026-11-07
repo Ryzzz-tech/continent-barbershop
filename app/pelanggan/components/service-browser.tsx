@@ -2,19 +2,20 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { customerServices } from "../../../lib/data/services";
+import { useCustomerServices } from "../../components/use-customer-services";
 import { formatRupiah } from "../data";
 import { useCustomerPrototype } from "./customer-context";
 
 export default function ServiceBrowser() {
   const [query, setQuery] = useState("");
   const { setBookingDraft, bookingDraft } = useCustomerPrototype();
+  const customerServices = useCustomerServices();
   const filteredServices = useMemo(
     () =>
       customerServices.filter((service) =>
         service.name.toLocaleLowerCase("id-ID").includes(query.trim().toLocaleLowerCase("id-ID")),
       ),
-    [query],
+    [customerServices, query],
   );
 
   return (

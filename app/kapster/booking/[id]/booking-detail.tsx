@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { customerServices } from "../../../../lib/data/services";
+import { useCustomerServices } from "../../../components/use-customer-services";
 import { formatRupiah, formatTanggal } from "../../../pelanggan/data";
 import { useKapsterPrototype } from "../../kapster-context";
 import {
@@ -16,6 +16,7 @@ export default function KapsterBookingDetail({
   bookingId: string;
 }) {
   const { getBooking } = useKapsterPrototype();
+  const customerServices = useCustomerServices();
   const booking = getBooking(bookingId);
 
   if (!booking) {

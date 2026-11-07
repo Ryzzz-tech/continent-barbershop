@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { customerServices } from "../../../lib/data/services";
+import { useAppFeedback } from "../../components/app-feedback";
+import { useCustomerServices } from "../../components/use-customer-services";
 import {
   customerBarbers,
   formatTanggal,
@@ -20,9 +21,11 @@ const paymentMethods = [
 ];
 
 export default function OnlinePaymentPage() {
-  const { bookingDraft, storageError } = useCustomerPrototype();
+  const { bookingDraft, storageError, markBookingDraftPaid } =
+    useCustomerPrototype();
+  const customerServices = useCustomerServices();
+  const { showToast } = useAppFeedback();
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [message, setMessage] = useState("");
   const service = customerServices.find(
     (item) => item.id === bookingDraft?.serviceId,
   );
@@ -39,16 +42,45 @@ export default function OnlinePaymentPage() {
       bookingDraft.price === service.price &&
       bookingDraft.total === service.price,
   );
+  const isPaid = bookingDraft?.paymentStatus === "paid";
 
   function submitPayment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!paymentMethod) {
-      setMessage("Pilih metode pembayaran terlebih dahulu.");
+      showToast(
+        "Metode Pembayaran Belum Dipilih",
+        "Pilih Transfer Bank, QRIS, atau E-Wallet sebelum melanjutkan.",
+        "error",
+      );
       return;
     }
-    setMessage(
-      "Integrasi pembayaran belum tersedia. Tidak ada pembayaran yang diproses dan booking belum tersimpan.",
-    );
+    if (!paymentMethods.some((method) => method.id === paymentMethod)) {
+      showToast("Metode Pembayaran Tidak Valid", "Pilih metode pembayaran yang tersedia.", "error");
+      return;
+    }
+
+    const result = markBookingDraftPaid();
+    if (result === "paid") {
+      showToast(
+        "Pembayaran Berhasil!",
+        "Pembayaran berhasil disimulasikan. Status pembayaran booking Anda sekarang adalah Sudah Dibayar.",
+        "success",
+      );
+    } else if (result === "already-paid") {
+      showToast(
+        "Pembayaran Sudah Disimulasikan",
+        "Draft booking ini telah berstatus Sudah Dibayar.",
+        "info",
+      );
+    } else if (result === "missing") {
+      showToast("Draft Booking Tidak Ditemukan", "Tidak ada draft booking yang dapat diproses.", "error");
+    } else {
+      showToast(
+        "Status Pembayaran Gagal Disimpan",
+        "Pembayaran belum ditandai berhasil karena perubahan tidak tersimpan.",
+        "error",
+      );
+    }
   }
 
   if (!bookingDraft) {
@@ -134,12 +166,10 @@ export default function OnlinePaymentPage() {
                 >
                   <input
                     checked={paymentMethod === method.id}
+                    disabled={isPaid}
                     name="payment-method"
                     onChange={() => {
                       setPaymentMethod(method.id);
-                      setMessage(
-                        "Integrasi pembayaran belum tersedia. Pilihan ini hanya pratinjau; tidak ada pembayaran yang diproses.",
-                      );
                     }}
                     type="radio"
                     value={method.id}
@@ -155,19 +185,15 @@ export default function OnlinePaymentPage() {
               ))}
             </div>
             <p className="customer-field-hint">
-              Ini hanya pilihan metode untuk pratinjau. Tidak ada pembayaran
-              atau transaksi yang dibuat.
+              Pembayaran hanya disimulasikan untuk prototipe. Tidak ada transaksi
+              keuangan, verifikasi bank, atau bukti transaksi yang dibuat.
             </p>
-            {message && (
-              <p
-                className={paymentMethod ? "customer-info-banner" : "customer-form-error"}
-                role={paymentMethod ? "status" : "alert"}
-              >
-                {message}
-              </p>
-            )}
-            <button className="customer-primary-button" type="submit">
-              Lanjutkan Pembayaran
+            <button
+              className="customer-primary-button"
+              disabled={isPaid}
+              type="submit"
+            >
+              {isPaid ? "Pembayaran Berhasil Disimulasikan" : "Lanjutkan Pembayaran"}
             </button>
           </form>
         </section>
@@ -200,8 +226,8 @@ export default function OnlinePaymentPage() {
               <dd>{formatRupiah(bookingDraft.total)}</dd>
             </div>
           </dl>
-          <span className="status-pill status-pill--draft">
-            Draft — belum dibayar
+          <span className={`status-pill ${isPaid ? "status-pill--active" : "status-pill--draft"}`}>
+            {isPaid ? "Sudah Dibayar" : "Belum Dibayar"}
           </span>
         </aside>
       </div>

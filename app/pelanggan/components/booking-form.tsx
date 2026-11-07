@@ -11,9 +11,9 @@ import {
   isValidDateValue,
   isValidTimeValue,
 } from "../data";
-import { customerServices as serviceCatalog } from "../../../lib/data/services";
 import { useCustomerPrototype } from "./customer-context";
 import type { BookingDraftFields } from "./booking-draft-store";
+import { useCustomerServices } from "../../components/use-customer-services";
 
 type BookingField = keyof BookingDraftFields;
 type BookingErrors = Partial<Record<BookingField, string>>;
@@ -21,6 +21,7 @@ type BookingErrors = Partial<Record<BookingField, string>>;
 function getFieldError(
   field: BookingField,
   value: string,
+  serviceCatalog: ReturnType<typeof useCustomerServices>,
 ): string | undefined {
   switch (field) {
     case "serviceId":
@@ -53,6 +54,7 @@ export default function BookingForm({
   const router = useRouter();
   const { bookingDraft, setBookingDraft, storageError } =
     useCustomerPrototype();
+  const serviceCatalog = useCustomerServices();
   const [serviceOverride, setServiceOverride] = useState<string | null>(null);
   const [errors, setErrors] = useState<BookingErrors>({});
 
@@ -91,7 +93,7 @@ export default function BookingForm({
     setErrors((current) => {
       const next = { ...current };
       const fieldValue = updated[field];
-      const message = getFieldError(field, fieldValue);
+      const message = getFieldError(field, fieldValue, serviceCatalog);
       if (message) next[field] = message;
       else delete next[field];
       return next;
@@ -104,7 +106,7 @@ export default function BookingForm({
     const nextErrors: BookingErrors = {};
 
     for (const field of Object.keys(values) as BookingField[]) {
-      const message = getFieldError(field, values[field]);
+      const message = getFieldError(field, values[field], serviceCatalog);
       if (message) nextErrors[field] = message;
     }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { customerServices } from "../../lib/data/services";
+import { useCustomerServices } from "../components/use-customer-services";
 import { customerBarbers, formatTanggal } from "../pelanggan/data";
 import { useKapsterPrototype } from "./kapster-context";
 import {
@@ -11,6 +11,7 @@ import {
 } from "./kapster-ui";
 
 export default function KapsterDashboard() {
+  const customerServices = useCustomerServices();
   const { bookings, activeBarberId } = useKapsterPrototype();
   const assignedBookings = bookings
     .filter((booking) => booking.barberId === activeBarberId)

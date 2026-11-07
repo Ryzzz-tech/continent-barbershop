@@ -16,6 +16,7 @@ export type OwnerCatalogItem = {
   name: string;
   kind: OwnerCatalogKind;
   price: number | null;
+  description?: string;
   stock?: number;
 };
 

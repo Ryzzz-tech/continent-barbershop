@@ -1,19 +1,36 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import ConfirmDialog from "../../components/confirm-dialog";
+import { useAppFeedback } from "../../components/app-feedback";
 import { useOwnerPrototype } from "../owner-context";
 import { OwnerPageHeading, OwnerPrototypeNote } from "../owner-ui";
 
 export default function OwnerEmployeeList() {
-  const { employees, deleteEmployee, announce } = useOwnerPrototype();
+  const { employees, deleteEmployee } = useOwnerPrototype();
+  const { showToast } = useAppFeedback();
+  const [employeeToDelete, setEmployeeToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
-  function removeEmployee(id: string, name: string) {
-    if (!window.confirm(`Hapus data ${name} dari prototipe?`)) return;
-    if (deleteEmployee(id)) {
-      announce(`Data ${name} dihapus dari prototipe.`);
-    } else {
-      announce("Data karyawan tidak ditemukan dan tidak dapat dihapus.");
+  function removeEmployee() {
+    if (!employeeToDelete) return false;
+    if (deleteEmployee(employeeToDelete.id)) {
+      showToast(
+        "Data Berhasil Dihapus",
+        `Data ${employeeToDelete.name} berhasil dihapus.`,
+        "success",
+      );
+      return true;
     }
+    showToast(
+      "Penghapusan Gagal",
+      "Data karyawan tidak dapat dihapus. Periksa kembali data atau penyimpanan browser.",
+      "error",
+    );
+    return false;
   }
 
   return (
@@ -58,7 +75,12 @@ export default function OwnerEmployeeList() {
                       </Link>
                       <button
                         className="cashier-row-action cashier-row-action--danger"
-                        onClick={() => removeEmployee(employee.id, employee.name)}
+                        onClick={() =>
+                          setEmployeeToDelete({
+                            id: employee.id,
+                            name: employee.name,
+                          })
+                        }
                         type="button"
                       >
                         Hapus
@@ -79,6 +101,14 @@ export default function OwnerEmployeeList() {
           </div>
         )}
       </section>
+      {employeeToDelete && (
+        <ConfirmDialog
+          title="Konfirmasi Penghapusan"
+          description={`Apakah Anda yakin ingin menghapus data ${employeeToDelete.name}?`}
+          onClose={() => setEmployeeToDelete(null)}
+          onConfirm={removeEmployee}
+        />
+      )}
     </div>
   );
 }

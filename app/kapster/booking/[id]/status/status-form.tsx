@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { customerServices } from "../../../../../lib/data/services";
+import ConfirmDialog from "../../../../components/confirm-dialog";
+import { useCustomerServices } from "../../../../components/use-customer-services";
 import { formatRupiah } from "../../../../pelanggan/data";
 import { useKapsterPrototype } from "../../../kapster-context";
 import {
@@ -25,11 +26,13 @@ export default function KapsterBookingStatusForm({
     announce,
   } = useKapsterPrototype();
   const booking = getBooking(bookingId);
+  const customerServices = useCustomerServices();
   const [status, setStatus] = useState<BookingStatus | "">(
     booking?.status ?? "",
   );
   const [note, setNote] = useState(booking?.statusNote ?? "");
   const [error, setError] = useState("");
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   if (!booking) {
     return (
@@ -50,6 +53,22 @@ export default function KapsterBookingStatusForm({
     (item) => item.id === booking.serviceId,
   );
 
+  function saveStatus() {
+    if (!status || !booking) {
+      setError("Pilih status booking sebelum menyimpan.");
+      return false;
+    }
+
+    if (!updateBookingStatus(booking.id, status, note.trim())) {
+      setError("Booking tidak ditemukan atau tidak ditugaskan kepada Anda.");
+      return false;
+    }
+
+    announce(`Status booking ${booking.id} diperbarui menjadi ${getBookingStatusLabel(status)} pada prototipe.`);
+    router.push(`/kapster/booking/${encodeURIComponent(booking.id)}`);
+    return true;
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!status || !booking) {
@@ -57,21 +76,12 @@ export default function KapsterBookingStatusForm({
       return;
     }
 
-    if (
-      status === "cancelled" &&
-      status !== booking.status &&
-      !window.confirm(`Batalkan booking ${booking.id}?`)
-    ) {
+    if (status === "cancelled" && status !== booking.status) {
+      setConfirmCancel(true);
       return;
     }
 
-    if (!updateBookingStatus(booking.id, status, note.trim())) {
-      setError("Booking tidak ditemukan atau tidak ditugaskan kepada Anda.");
-      return;
-    }
-
-    announce(`Status booking ${booking.id} diperbarui menjadi ${getBookingStatusLabel(status)} pada prototipe.`);
-    router.push(`/kapster/booking/${encodeURIComponent(booking.id)}`);
+    saveStatus();
   }
 
   return (
@@ -152,6 +162,16 @@ export default function KapsterBookingStatusForm({
           </dl>
         </aside>
       </form>
+      {confirmCancel && booking && (
+        <ConfirmDialog
+          title="Konfirmasi Pembatalan"
+          description={`Apakah Anda yakin ingin membatalkan booking ${booking.id}?`}
+          detail="Status booking akan diubah menjadi Dibatalkan."
+          confirmLabel="Ya, Batalkan"
+          onClose={() => setConfirmCancel(false)}
+          onConfirm={saveStatus}
+        />
+      )}
     </div>
   );
 }

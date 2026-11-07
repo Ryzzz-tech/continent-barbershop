@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { customerServices } from "../../../lib/data/services";
+import { useCustomerServices } from "../../components/use-customer-services";
 import { formatTanggal } from "../../pelanggan/data";
 import { useKapsterPrototype } from "../kapster-context";
 import {
@@ -14,6 +14,7 @@ import {
 
 export default function KapsterBookingList() {
   const { bookings, activeBarberId } = useKapsterPrototype();
+  const customerServices = useCustomerServices();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const filteredBookings = useMemo(() => {
@@ -36,7 +37,7 @@ export default function KapsterBookingList() {
       .sort((left, right) =>
         `${left.date}T${left.time}`.localeCompare(`${right.date}T${right.time}`),
       );
-  }, [activeBarberId, bookings, query, statusFilter]);
+  }, [activeBarberId, bookings, customerServices, query, statusFilter]);
 
   return (
     <div className="cashier-page kapster-page">

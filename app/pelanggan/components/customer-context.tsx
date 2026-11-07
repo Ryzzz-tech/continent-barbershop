@@ -10,6 +10,7 @@ import {
   clearBookingDraft,
   getBookingDraftSnapshot,
   getServerBookingDraftSnapshot,
+  markBookingDraftPaid,
   saveBookingDraft,
   subscribeToBookingDraft,
   type BookingDraftFields,
@@ -19,6 +20,7 @@ type CustomerPrototypeContextValue = {
   bookingDraft: ReturnType<typeof getBookingDraftSnapshot>["draft"];
   storageError: string | null;
   setBookingDraft: (draft: BookingDraftFields) => boolean;
+  markBookingDraftPaid: typeof markBookingDraftPaid;
   clearBookingDraft: () => boolean;
 };
 
@@ -39,6 +41,7 @@ export function CustomerPrototypeProvider({
     bookingDraft: snapshot.draft,
     storageError: snapshot.error,
     setBookingDraft: saveBookingDraft,
+    markBookingDraftPaid,
     clearBookingDraft,
   };
 

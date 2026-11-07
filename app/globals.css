@@ -1286,6 +1286,251 @@ a {
   }
 }
 
+.app-dialog-backdrop {
+  align-items: center;
+  background: rgba(20, 17, 35, 0.52);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 1200;
+}
+
+.app-confirm-dialog {
+  background: #ffffff;
+  border: 1px solid #e8e5f2;
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(20, 17, 47, 0.24);
+  color: #242039;
+  font-family: var(--font-jomolhari), Georgia, serif;
+  max-width: 460px;
+  padding: 30px;
+  position: relative;
+  width: 100%;
+}
+
+.app-confirm-dialog__close,
+.app-toast__close {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #77738a;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  justify-content: center;
+}
+
+.app-confirm-dialog__close {
+  border-radius: 8px;
+  font-size: 24px;
+  height: 34px;
+  position: absolute;
+  right: 14px;
+  top: 12px;
+  width: 34px;
+}
+
+.app-confirm-dialog__close:hover,
+.app-toast__close:hover {
+  background: #f2f0fa;
+  color: #2603bf;
+}
+
+.app-confirm-dialog__icon {
+  align-items: center;
+  background: #f0edff;
+  border-radius: 12px;
+  color: #2603bf;
+  display: inline-flex;
+  font-family: var(--font-jomolhari), Georgia, serif;
+  font-size: 20px;
+  font-weight: 700;
+  height: 42px;
+  justify-content: center;
+  margin-bottom: 14px;
+  width: 42px;
+}
+
+.app-confirm-dialog h2 {
+  color: #211d36;
+  font-size: 21px;
+  line-height: 1.35;
+  margin: 0 34px 10px 0;
+}
+
+.app-confirm-dialog > p {
+  color: #555168;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.app-confirm-dialog .app-confirm-dialog__detail {
+  color: #77738a;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.app-confirm-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 26px;
+}
+
+.app-confirm-dialog__actions button {
+  align-items: center;
+  border-radius: 9px;
+  cursor: pointer;
+  display: inline-flex;
+  font: 600 14px var(--font-jomolhari), Georgia, serif;
+  gap: 8px;
+  justify-content: center;
+  min-height: 42px;
+  padding: 9px 16px;
+}
+
+.app-confirm-dialog__actions button:disabled,
+.app-confirm-dialog__close:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.app-confirm-dialog__cancel {
+  background: #ffffff;
+  border: 1px solid #dcd9e8;
+  color: #454158;
+}
+
+.app-confirm-dialog__confirm {
+  background: #2603bf;
+  border: 1px solid #2603bf;
+  color: #ffffff;
+}
+
+.app-confirm-dialog__confirm:hover:not(:disabled) {
+  background: #1d0294;
+}
+
+.app-confirm-dialog__spinner {
+  animation: app-feedback-spin 0.75s linear infinite;
+  border: 2px solid rgba(255, 255, 255, 0.42);
+  border-radius: 50%;
+  border-top-color: #ffffff;
+  height: 15px;
+  width: 15px;
+}
+
+.app-toast {
+  align-items: flex-start;
+  background: #ffffff;
+  border: 1px solid #e4e0ef;
+  border-left: 4px solid #2603bf;
+  border-radius: 12px;
+  bottom: 24px;
+  box-shadow: 0 14px 40px rgba(20, 17, 47, 0.18);
+  color: #242039;
+  display: flex;
+  font-family: var(--font-jomolhari), Georgia, serif;
+  gap: 12px;
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 16px 14px;
+  position: fixed;
+  right: 24px;
+  width: 100%;
+  z-index: 1300;
+}
+
+.app-toast--success {
+  border-left-color: #198754;
+}
+
+.app-toast--error {
+  border-left-color: #c62828;
+}
+
+.app-toast__icon {
+  align-items: center;
+  background: #f0edff;
+  border-radius: 50%;
+  color: #2603bf;
+  display: inline-flex;
+  flex: 0 0 28px;
+  font-size: 15px;
+  font-weight: 700;
+  height: 28px;
+  justify-content: center;
+}
+
+.app-toast--success .app-toast__icon {
+  background: #e8f7ef;
+  color: #198754;
+}
+
+.app-toast--error .app-toast__icon {
+  background: #fff0f0;
+  color: #c62828;
+}
+
+.app-toast__content {
+  min-width: 0;
+}
+
+.app-toast__content strong {
+  display: block;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.app-toast__content p {
+  color: #5e5a70;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 3px 0 0;
+}
+
+.app-toast__close {
+  border-radius: 7px;
+  flex: 0 0 28px;
+  font-size: 22px;
+  height: 28px;
+  line-height: 1;
+  margin: -4px -4px 0 auto;
+  width: 28px;
+}
+
+@keyframes app-feedback-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .app-confirm-dialog {
+    border-radius: 13px;
+    padding: 24px 20px;
+  }
+
+  .app-confirm-dialog__actions {
+    flex-direction: column-reverse;
+  }
+
+  .app-confirm-dialog__actions button {
+    width: 100%;
+  }
+
+  .app-toast {
+    bottom: 14px;
+    left: 16px;
+    max-width: none;
+    right: 16px;
+    width: auto;
+  }
+}
+
 .owner-page {
   max-width: 1180px;
 }

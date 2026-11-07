@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { customerServices } from "../../../lib/data/services";
+import { useCustomerServices } from "../../components/use-customer-services";
 import {
   customerBarbers,
   formatRupiah,
@@ -31,6 +31,7 @@ type TransactionField = keyof TransactionValues;
 export default function CashierTransactionForm() {
   const router = useRouter();
   const { customers, bookings, setTransactionDraft } = useCashierPrototype();
+  const customerServices = useCustomerServices();
   const [values, setValues] = useState<TransactionValues>({
     customerName: "",
     serviceId: "",

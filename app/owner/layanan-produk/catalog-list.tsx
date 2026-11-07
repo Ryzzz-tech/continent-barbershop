@@ -1,20 +1,38 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import ConfirmDialog from "../../components/confirm-dialog";
+import { useAppFeedback } from "../../components/app-feedback";
 import { formatRupiah } from "../../pelanggan/data";
 import { useOwnerPrototype } from "../owner-context";
 import { OwnerPageHeading, OwnerPrototypeNote } from "../owner-ui";
 
 export default function OwnerCatalogList() {
-  const { catalog, deleteCatalogItem, announce } = useOwnerPrototype();
+  const { catalog, deleteCatalogItem } = useOwnerPrototype();
+  const { showToast } = useAppFeedback();
+  const [itemToDelete, setItemToDelete] = useState<{
+    id: string;
+    name: string;
+    kind: string;
+  } | null>(null);
 
-  function removeItem(id: string, name: string) {
-    if (!window.confirm(`Hapus ${name} dari katalog prototipe?`)) return;
-    if (deleteCatalogItem(id)) {
-      announce(`${name} dihapus dari katalog prototipe.`);
-    } else {
-      announce("Data katalog tidak ditemukan dan tidak dapat dihapus.");
+  function removeItem() {
+    if (!itemToDelete) return false;
+    if (deleteCatalogItem(itemToDelete.id)) {
+      showToast(
+        "Data Berhasil Dihapus",
+        `${itemToDelete.kind} ${itemToDelete.name} berhasil dihapus.`,
+        "success",
+      );
+      return true;
     }
+    showToast(
+      "Penghapusan Gagal",
+      "Data katalog tidak dapat dihapus. Periksa kembali data atau penyimpanan browser.",
+      "error",
+    );
+    return false;
   }
 
   return (
@@ -28,7 +46,8 @@ export default function OwnerCatalogList() {
         </Link>
       </OwnerPageHeading>
       <OwnerPrototypeNote>
-        Perubahan katalog disimpan di prototipe Owner. Katalog publik Pelanggan belum terhubung ke penyimpanan Owner.
+        Katalog layanan yang dikelola di sini juga digunakan pada halaman Pelanggan.
+        Produk dikelola terpisah dari layanan.
       </OwnerPrototypeNote>
       <section className="cashier-panel owner-table-panel">
         <div className="cashier-table-scroll owner-table-scroll">
@@ -61,7 +80,13 @@ export default function OwnerCatalogList() {
                       </Link>
                       <button
                         className="cashier-row-action cashier-row-action--danger"
-                        onClick={() => removeItem(item.id, item.name)}
+                        onClick={() =>
+                          setItemToDelete({
+                            id: item.id,
+                            name: item.name,
+                            kind: item.kind,
+                          })
+                        }
                         type="button"
                       >
                         Hapus
@@ -82,6 +107,19 @@ export default function OwnerCatalogList() {
           </div>
         )}
       </section>
+      {itemToDelete && (
+        <ConfirmDialog
+          title="Konfirmasi Penghapusan"
+          description={`Apakah Anda yakin ingin menghapus ${itemToDelete.kind.toLocaleLowerCase("id-ID")} "${itemToDelete.name}"?`}
+          detail={
+            itemToDelete.kind === "Produk"
+              ? "Data produk dan riwayat restock terkait tidak dapat dikembalikan."
+              : undefined
+          }
+          onClose={() => setItemToDelete(null)}
+          onConfirm={removeItem}
+        />
+      )}
     </div>
   );
 }

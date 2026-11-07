@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Jomhuria, Jomolhari } from "next/font/google";
+import { AppFeedbackProvider } from "./components/app-feedback";
 import "./globals.css";
 
 const jomhuria = Jomhuria({
@@ -26,7 +27,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="id"
       className={`${jomhuria.variable} ${jomolhari.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <AppFeedbackProvider>{children}</AppFeedbackProvider>
+      </body>
     </html>
   );
 }
