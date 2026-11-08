@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -145,19 +145,12 @@ export default function CashierTransactionForm() {
   }, [loadOptions]);
 
   useEffect(() => {
-    if (!date || !serviceId || !barberId) {
-      setSlots([]);
-      setTime("");
-      setLoadingSlots(false);
-      return;
-    }
+    if (!date || !serviceId || !barberId) return;
 
     const controller = new AbortController();
 
     async function loadSlots() {
       setLoadingSlots(true);
-      setSlots([]);
-      setTime("");
       setFormError("");
 
       try {
@@ -342,7 +335,13 @@ export default function CashierTransactionForm() {
             <label htmlFor="transaction-service">Layanan</label>
             <select
               id="transaction-service"
-              onChange={(event) => setServiceId(event.target.value)}
+              onChange={(event) => {
+                const nextServiceId = event.target.value;
+                setServiceId(nextServiceId);
+                setSlots([]);
+                setTime("");
+                setLoadingSlots(Boolean(date && nextServiceId && barberId));
+              }}
               value={serviceId}
               disabled={loading}
             >
@@ -359,7 +358,13 @@ export default function CashierTransactionForm() {
             <label htmlFor="transaction-barber">Kapster</label>
             <select
               id="transaction-barber"
-              onChange={(event) => setBarberId(event.target.value)}
+              onChange={(event) => {
+                const nextBarberId = event.target.value;
+                setBarberId(nextBarberId);
+                setSlots([]);
+                setTime("");
+                setLoadingSlots(Boolean(date && serviceId && nextBarberId));
+              }}
               value={barberId}
               disabled={loading}
             >
@@ -378,9 +383,11 @@ export default function CashierTransactionForm() {
               id="transaction-date"
               min={getTodayDateValue()}
               onChange={(event) => {
-                setDate(event.target.value);
+                const nextDate = event.target.value;
+                setDate(nextDate);
                 setTime("");
                 setSlots([]);
+                setLoadingSlots(Boolean(nextDate && serviceId && barberId));
               }}
               type="date"
               value={date}

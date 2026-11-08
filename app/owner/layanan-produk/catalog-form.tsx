@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -86,10 +86,7 @@ export default function OwnerCatalogForm({
   const [itemActive, setItemActive] = useState(true);
 
   useEffect(() => {
-    if (!itemId) {
-      setLoading(false);
-      return;
-    }
+    if (!itemId) return;
 
     const currentItemId: string = itemId;
     let cancelled = false;
