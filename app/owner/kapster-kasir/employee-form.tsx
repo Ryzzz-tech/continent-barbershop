@@ -78,10 +78,7 @@ export default function OwnerEmployeeForm({
   const [formError, setFormError] = useState("");
 
   useEffect(() => {
-    if (!employeeId) {
-      setLoading(false);
-      return;
-    }
+    if (!employeeId) return;
 
     const currentEmployeeId: string = employeeId;
     let cancelled = false;
