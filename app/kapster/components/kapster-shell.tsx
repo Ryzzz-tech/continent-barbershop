@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState } from "react";
-import { useKapsterPrototype } from "../kapster-context";
+import LogoutButton from "@/app/components/logout-button";
 
 const navigationItems = [
   { href: "/kapster", label: "Beranda", key: "home" },
@@ -46,7 +46,7 @@ export default function KapsterShell({
   children: React.ReactNode;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { notice, announce, clearNotice } = useKapsterPrototype();
+  const [notice, setNotice] = useState("");
 
   return (
     <div className="cashier-app kapster-app">
@@ -98,15 +98,9 @@ export default function KapsterShell({
         </Suspense>
         <div className="cashier-sidebar-account kapster-sidebar-account">
           <span>Akun Saya</span>
-          <button
-            onClick={() => {
-              announce("Fitur keluar belum terhubung pada prototipe.");
-              setMobileMenuOpen(false);
-            }}
-            type="button"
-          >
+          <LogoutButton onError={setNotice}>
             Keluar
-          </button>
+          </LogoutButton>
         </div>
       </aside>
 
@@ -114,7 +108,7 @@ export default function KapsterShell({
       {notice && (
         <div className="cashier-toast kapster-toast" role="status">
           <span>{notice}</span>
-          <button onClick={clearNotice} type="button">
+          <button onClick={() => setNotice("")} type="button">
             Tutup
           </button>
         </div>

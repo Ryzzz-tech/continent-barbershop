@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { CustomerPrototypeProvider } from "./customer-context";
+import LogoutButton from "@/app/components/logout-button";
 
 const navigationItems = [
   { href: "/pelanggan", label: "Beranda", key: "home" },
@@ -39,10 +39,10 @@ function isActivePath(pathname: string, href: string) {
 
 function CustomerSidebar({
   onNavigate,
-  onSignOut,
+  onError,
 }: {
   onNavigate?: () => void;
-  onSignOut: () => void;
+  onError: (message: string) => void;
 }) {
   const pathname = usePathname();
 
@@ -82,9 +82,9 @@ function CustomerSidebar({
 
       <div className="customer-sidebar__account">
         <span>Akun Saya</span>
-        <button onClick={onSignOut} type="button">
+        <LogoutButton onError={onError}>
           Keluar
-        </button>
+        </LogoutButton>
       </div>
     </aside>
   );
@@ -94,13 +94,12 @@ export default function CustomerShell({ children }: { children: ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notice, setNotice] = useState("");
 
-  function showPrototypeNotice() {
-    setNotice("Fitur akun belum terhubung pada prototipe frontend.");
+  function showLogoutError() {
+    setNotice("Sesi belum dapat diakhiri. Silakan coba kembali.");
     setMobileMenuOpen(false);
   }
 
   return (
-    <CustomerPrototypeProvider>
       <div className="customer-app">
         <div className="customer-mobile-bar">
           <Link href="/pelanggan" aria-label="Continent Barbershop, Beranda pelanggan">
@@ -140,7 +139,7 @@ export default function CustomerShell({ children }: { children: ReactNode }) {
           >
             <CustomerSidebar
               onNavigate={() => setMobileMenuOpen(false)}
-              onSignOut={showPrototypeNotice}
+              onError={showLogoutError}
             />
           </Suspense>
         </div>
@@ -155,6 +154,5 @@ export default function CustomerShell({ children }: { children: ReactNode }) {
           </div>
         )}
       </div>
-    </CustomerPrototypeProvider>
   );
 }

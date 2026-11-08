@@ -2,14 +2,20 @@ import BookingForm from "../../components/booking-form";
 import { Suspense } from "react";
 
 type BookingFormPageProps = {
-  searchParams: Promise<{ layanan?: string }>;
+  searchParams: Promise<{ layanan?: string; booking?: string }>;
 };
 
 async function BookingFormContent({
   searchParams,
 }: BookingFormPageProps) {
-  const { layanan } = await searchParams;
-  return <BookingForm initialServiceId={layanan ?? ""} key={layanan ?? ""} />;
+  const { layanan, booking } = await searchParams;
+  return (
+    <BookingForm
+      bookingId={booking}
+      initialServiceId={layanan ?? ""}
+      key={`${layanan ?? ""}:${booking ?? ""}`}
+    />
+  );
 }
 
 export default function BookingFormPage(props: BookingFormPageProps) {

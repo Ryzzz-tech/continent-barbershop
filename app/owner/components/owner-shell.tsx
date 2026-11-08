@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
-import { useOwnerPrototype } from "../owner-context";
+import LogoutButton from "@/app/components/logout-button";
+import { useAppFeedback } from "@/app/components/app-feedback";
 
 const navigationItems = [
   { href: "/owner", label: "Beranda" },
@@ -41,7 +42,7 @@ function OwnerNavigation({ onNavigate }: { onNavigate: () => void }) {
 
 export default function OwnerShell({ children }: { children: ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { notice, announce, clearNotice } = useOwnerPrototype();
+  const { showToast } = useAppFeedback();
 
   return (
     <div className="cashier-app owner-app">
@@ -93,25 +94,13 @@ export default function OwnerShell({ children }: { children: ReactNode }) {
         </Suspense>
         <div className="cashier-sidebar-account">
           <span>Akun Owner</span>
-          <button
-            onClick={() => {
-              announce("Fitur keluar belum terhubung pada prototipe.");
-              setMobileMenuOpen(false);
-            }}
-            type="button"
-          >
+          <LogoutButton onError={(message) => showToast("Logout Gagal", message, "error")}>
             Logout
-          </button>
+          </LogoutButton>
         </div>
       </aside>
 
       <main className="cashier-content">{children}</main>
-      {notice && (
-        <div className="cashier-toast" role="status">
-          <span>{notice}</span>
-          <button onClick={clearNotice} type="button">Tutup</button>
-        </div>
-      )}
     </div>
   );
 }

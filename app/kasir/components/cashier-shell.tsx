@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
+import LogoutButton from "@/app/components/logout-button";
 import { useCashierPrototype } from "../cashier-context";
 
 const navigationItems = [
@@ -95,15 +96,9 @@ export default function CashierShell({ children }: { children: ReactNode }) {
         </Suspense>
         <div className="cashier-sidebar-account">
           <span>Akun Kasir</span>
-          <button
-            onClick={() => {
-              announce("Fitur keluar belum terhubung pada prototipe.");
-              setMobileMenuOpen(false);
-            }}
-            type="button"
-          >
+          <LogoutButton onError={announce}>
             Keluar
-          </button>
+          </LogoutButton>
         </div>
       </aside>
 

@@ -254,6 +254,7 @@ export default function AuthPage({ variant }: AuthPageProps) {
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [notice, setNotice] = useState<Notice | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRefs = useRef<Partial<Record<FieldName, HTMLElement | null>>>(
     {},
   );
@@ -314,13 +315,85 @@ export default function AuthPage({ variant }: AuthPageProps) {
       if (firstInvalid) inputRefs.current[firstInvalid]?.focus();
       return;
     }
-
     setNotice({
       kind: "success",
       message: isRegister
         ? "Formulir berhasil divalidasi. Fitur registrasi belum terhubung ke server."
         : "Data valid, tetapi fitur login belum tersedia.",
     });
+  }
+
+  async function submitLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitted(true);
+
+    const nextErrors = validateForm(
+      variant,
+      values,
+      selectedRole,
+      termsAccepted,
+    );
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) {
+      const firstInvalid = firstErrorField(nextErrors);
+      if (firstInvalid) inputRefs.current[firstInvalid]?.focus();
+      setNotice({
+        kind: "error",
+        message: "Periksa kembali data yang Anda masukkan.",
+      });
+      return;
+    }
+
+    const expectedRole = isCustomer
+      ? "pelanggan"
+      : selectedRole?.toLowerCase();
+    const destinationByRole: Record<string, string> = {
+      owner: "/owner",
+      kasir: "/kasir",
+      kapster: "/kapster",
+      pelanggan: "/pelanggan",
+    };
+    if (!expectedRole || !destinationByRole[expectedRole]) {
+      setNotice({
+        kind: "error",
+        message: "Silakan pilih peran yang valid.",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identifier: values.identity,
+          password: values.password,
+          expectedRole,
+        }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        setNotice({
+          kind: "error",
+          message:
+            typeof result?.message === "string"
+              ? result.message
+              : "Login gagal. Periksa kembali email/nomor HP dan password.",
+        });
+        return;
+      }
+
+      window.location.assign(destinationByRole[expectedRole]);
+    } catch {
+      setNotice({
+        kind: "error",
+        message: "Server tidak dapat dihubungi. Silakan coba beberapa saat lagi.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function changeRole(role: string) {
@@ -398,6 +471,7 @@ export default function AuthPage({ variant }: AuthPageProps) {
                         ? "employee-role employee-role--selected"
                         : "employee-role"
                     }
+                    disabled={isSubmitting}
                     key={role}
                     onClick={() => changeRole(role)}
                     ref={
@@ -429,9 +503,11 @@ export default function AuthPage({ variant }: AuthPageProps) {
 
           {isCustomer && (
             <form
+              action="/api/auth/login"
               className="auth-form auth-form--customer"
+              method="post"
               noValidate
-              onSubmit={validateAndShowResult}
+              onSubmit={submitLogin}
             >
               <div className="auth-fields auth-fields--customer">
                 <TextField
@@ -464,8 +540,12 @@ export default function AuthPage({ variant }: AuthPageProps) {
                 />
                 <span className="forgot-password">Lupa Password?</span>
               </div>
-              <button className="auth-submit auth-submit--customer" type="submit">
-                Login
+              <button
+                className="auth-submit auth-submit--customer"
+                disabled={isSubmitting}
+                type="submit"
+              >
+                {isSubmitting ? "Memproses..." : "Login"}
               </button>
               <p className="auth-registration">
                 <span>Belum punya akun?</span>
@@ -476,9 +556,11 @@ export default function AuthPage({ variant }: AuthPageProps) {
 
           {isEmployee && (
             <form
+              action="/api/auth/login"
               className="auth-form auth-form--employee"
+              method="post"
               noValidate
-              onSubmit={validateAndShowResult}
+              onSubmit={submitLogin}
             >
               <div className="auth-fields auth-fields--employee">
                 <TextField
@@ -510,8 +592,12 @@ export default function AuthPage({ variant }: AuthPageProps) {
                   variant="employee"
                 />
               </div>
-              <button className="auth-submit auth-submit--employee" type="submit">
-                Login
+              <button
+                className="auth-submit auth-submit--employee"
+                disabled={isSubmitting}
+                type="submit"
+              >
+                {isSubmitting ? "Memproses..." : "Login"}
               </button>
             </form>
           )}
@@ -519,6 +605,7 @@ export default function AuthPage({ variant }: AuthPageProps) {
           {isRegister && (
             <form
               className="auth-form auth-form--register"
+              method="post"
               noValidate
               onSubmit={validateAndShowResult}
             >

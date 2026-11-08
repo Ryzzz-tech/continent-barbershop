@@ -2,27 +2,53 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
-import { useCashierPrototype } from "../cashier-context";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useAppFeedback } from "../../components/app-feedback";
 import { CashierPageHeading, CashierPrototypeNote } from "../cashier-ui";
-import type { CashierCustomer } from "../prototype-types";
 
-type CustomerValues = Omit<CashierCustomer, "id">;
+type CustomerValues = {
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+};
+
 type CustomerField = keyof CustomerValues;
 
 const fieldLabels: Record<CustomerField, string> = {
   name: "Nama Pelanggan",
   phone: "No HP",
   email: "Email",
-  note: "Catatan (Opsional)",
+  address: "Alamat",
 };
 
 const emptyValues: CustomerValues = {
   name: "",
   phone: "",
   email: "",
-  note: "",
+  address: "",
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isCustomer(value: unknown): value is CustomerValues & { id: string } {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.phone === "string" &&
+    typeof value.email === "string" &&
+    typeof value.address === "string"
+  );
+}
+
+function responseMessage(value: unknown, fallback: string) {
+  return isRecord(value) && typeof value.message === "string"
+    ? value.message
+    : fallback;
+}
 
 export default function CashierCustomerForm({
   customerId,
@@ -30,39 +56,113 @@ export default function CashierCustomerForm({
   customerId?: string;
 }) {
   const router = useRouter();
-  const { customers, addCustomer, updateCustomer, announce } =
-    useCashierPrototype();
-  const customer = customerId
-    ? customers.find((item) => item.id === customerId)
-    : undefined;
-  const [values, setValues] = useState<CustomerValues>(() =>
-    customer
-      ? {
-          name: customer.name,
-          phone: customer.phone,
-          email: customer.email,
-          note: customer.note,
-        }
-      : emptyValues,
-  );
-  const [errors, setErrors] = useState<Partial<Record<CustomerField, string>>>({});
-  const [formError, setFormError] = useState("");
+  const { showToast } = useAppFeedback();
+
   const isEdit = Boolean(customerId);
 
-  if (isEdit && !customer) {
-    return (
-      <div className="cashier-page">
-        <CashierPageHeading title="Ubah Data Pelanggan" />
-        <div className="cashier-empty-state">
-          <h2>Data pelanggan tidak ditemukan</h2>
-          <p>Data mungkin sudah dihapus atau sesi prototipe telah dimulai ulang.</p>
-          <Link className="cashier-button cashier-button--primary" href="/kasir/pelanggan">
-            Kembali ke Data Pelanggan
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const [values, setValues] = useState<CustomerValues>(emptyValues);
+  const [errors, setErrors] = useState<
+    Partial<Record<CustomerField, string>>
+  >({});
+  const [formError, setFormError] = useState("");
+  const [loading, setLoading] = useState(isEdit);
+  const [saving, setSaving] = useState(false);
+
+  const loadCustomer = useCallback(async () => {
+    if (!customerId) return;
+
+    setLoading(true);
+    setFormError("");
+
+    try {
+      const response = await fetch(
+        `/api/kasir/pelanggan/${encodeURIComponent(customerId ?? "")}`,
+        { cache: "no-store" },
+      );
+
+      const result: unknown = await response.json();
+
+      if (
+        !response.ok ||
+        !isRecord(result) ||
+        !isCustomer(result.customer)
+      ) {
+        throw new Error(
+          responseMessage(result, "Data pelanggan tidak ditemukan."),
+        );
+      }
+
+      setValues({
+        name: result.customer.name,
+        phone: result.customer.phone,
+        email: result.customer.email,
+        address: result.customer.address,
+      });
+    } catch (loadError) {
+      setFormError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Data pelanggan tidak dapat dimuat.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [customerId]);
+
+  useEffect(() => {
+    if (!customerId) return;
+
+    let active = true;
+
+    async function load() {
+      setLoading(true);
+      setFormError("");
+
+      try {
+        const response = await fetch(
+          `/api/kasir/pelanggan/${encodeURIComponent(customerId ?? "")}`,
+          { cache: "no-store" },
+        );
+
+        const result: unknown = await response.json();
+
+        if (
+          !response.ok ||
+          !isRecord(result) ||
+          !isCustomer(result.customer)
+        ) {
+          throw new Error(
+            responseMessage(result, "Data pelanggan tidak ditemukan."),
+          );
+        }
+
+        if (active) {
+          setValues({
+            name: result.customer.name,
+            phone: result.customer.phone,
+            email: result.customer.email,
+            address: result.customer.address,
+          });
+        }
+      } catch (loadError) {
+        if (active) {
+          setFormError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Data pelanggan tidak dapat dimuat.",
+          );
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void load();
+
+    return () => {
+      active = false;
+    };
+  }, [customerId]);
 
   function updateField(field: CustomerField, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -70,48 +170,141 @@ export default function CashierCustomerForm({
     setFormError("");
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
     const nextErrors: Partial<Record<CustomerField, string>> = {};
+
     if (!values.name.trim()) {
       nextErrors.name = "Nama pelanggan wajib diisi.";
+    } else if (values.name.trim().length > 100) {
+      nextErrors.name = "Nama pelanggan maksimal 100 karakter.";
     }
 
     const normalizedPhone = values.phone.replace(/[\s()-]/g, "");
+
     if (!normalizedPhone) {
       nextErrors.phone = "Nomor HP wajib diisi.";
     } else if (!/^(?:\+?62|0)8\d{8,11}$/.test(normalizedPhone)) {
       nextErrors.phone = "Masukkan nomor HP Indonesia yang valid.";
     }
 
-    if (!values.email.trim()) {
+    const normalizedEmail = values.email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
       nextErrors.email = "Email wajib diisi.";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
+    } else if (
+      normalizedEmail.length > 100 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+    ) {
       nextErrors.email = "Masukkan alamat email yang valid.";
     }
 
+    if (!values.address.trim()) {
+      nextErrors.address = "Alamat pelanggan wajib diisi.";
+    } else if (values.address.trim().length > 500) {
+      nextErrors.address = "Alamat maksimal 500 karakter.";
+    }
+
     setErrors(nextErrors);
+
     if (Object.keys(nextErrors).length > 0) return;
 
-    const savedCustomer: CashierCustomer = {
-      id: customerId ?? `pelanggan-${crypto.randomUUID()}`,
-      name: values.name.trim(),
-      phone: normalizedPhone,
-      email: values.email.trim(),
-      note: values.note.trim(),
-    };
+    setSaving(true);
+    setFormError("");
 
-    if (customerId) {
-      if (!updateCustomer(savedCustomer)) {
-        setFormError("Data pelanggan tidak dapat diubah karena tidak ditemukan.");
-        return;
+    try {
+      const response = await fetch(
+        typeof customerId === "string" && customerId.length > 0
+          ? `/api/kasir/pelanggan/${encodeURIComponent(customerId ?? "")}`
+          : "/api/kasir/pelanggan",
+        {
+          method: customerId ? "PATCH" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: values.name.trim(),
+            phone: normalizedPhone,
+            email: normalizedEmail,
+            address: values.address.trim(),
+          }),
+        },
+      );
+
+      const result: unknown = await response.json();
+
+      if (
+        !response.ok ||
+        !isRecord(result) ||
+        result.success !== true ||
+        !isCustomer(result.customer)
+      ) {
+        throw new Error(
+          responseMessage(result, "Data pelanggan gagal disimpan."),
+        );
       }
-      announce("Perubahan data pelanggan disimpan pada state prototipe.");
-    } else {
-      addCustomer(savedCustomer);
-      announce("Data pelanggan ditambahkan pada state prototipe.");
+
+      const savedCustomer = result.customer;
+
+      showToast(
+        customerId ? "Data Pelanggan Diperbarui" : "Pelanggan Berhasil Ditambahkan",
+        `${savedCustomer.name} berhasil disimpan ke PostgreSQL.`,
+        "success",
+      );
+
+      router.push("/kasir/pelanggan");
+    } catch (saveError) {
+      const message =
+        saveError instanceof Error
+          ? saveError.message
+          : "Data pelanggan gagal disimpan.";
+
+      setFormError(message);
+
+      showToast("Penyimpanan Gagal", message, "error");
+    } finally {
+      setSaving(false);
     }
-    router.push("/kasir/pelanggan");
+  }
+
+  if (loading) {
+    return (
+      <div className="cashier-page">
+        <CashierPageHeading
+          title="Ubah Data Pelanggan"
+          description="Mengambil data pelanggan dari database."
+        />
+        <div className="cashier-empty-state" aria-busy="true">
+          <p>Memuat data pelanggan...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isEdit && formError && !values.name) {
+    return (
+      <div className="cashier-page">
+        <CashierPageHeading title="Ubah Data Pelanggan" />
+        <div className="cashier-empty-state" role="alert">
+          <h2>Data pelanggan tidak dapat dimuat</h2>
+          <p>{formError}</p>
+          <button
+            className="cashier-button cashier-button--secondary"
+            onClick={() => void loadCustomer()}
+            type="button"
+          >
+            Coba lagi
+          </button>
+          <Link
+            className="cashier-button cashier-button--primary"
+            href="/kasir/pelanggan"
+          >
+            Kembali ke Data Pelanggan
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -120,37 +313,60 @@ export default function CashierCustomerForm({
         title={isEdit ? "Ubah Data Pelanggan" : "Tambah Data Pelanggan"}
         description={
           isEdit
-            ? "Perbarui informasi pelanggan pada prototipe."
-            : "Lengkapi informasi pelanggan untuk ditambahkan ke prototipe."
+            ? "Perbarui informasi pelanggan yang tersimpan di database."
+            : "Lengkapi informasi pelanggan untuk disimpan ke database."
         }
       />
+
       <CashierPrototypeNote>
-        Data hanya disimpan sementara di browser dan tidak dikirim ke database.
+        Data pelanggan akan disimpan langsung ke PostgreSQL. Nomor HP dan
+        email harus unik.
       </CashierPrototypeNote>
-      <form className="cashier-form-panel cashier-customer-form" onSubmit={submit} noValidate>
+
+      <form
+        className="cashier-form-panel cashier-customer-form"
+        onSubmit={submit}
+        noValidate
+      >
         {(Object.keys(fieldLabels) as CustomerField[]).map((field) => {
           const error = errors[field];
           const inputId = `customer-${field}`;
+
           return (
             <div className="cashier-field" key={field}>
               <label htmlFor={inputId}>{fieldLabels[field]}</label>
-              {field === "note" ? (
+
+              {field === "address" ? (
                 <textarea
                   aria-invalid={Boolean(error)}
-                  aria-describedby={error ? `${inputId}-error` : undefined}
+                  aria-describedby={
+                    error ? `${inputId}-error` : undefined
+                  }
                   id={inputId}
-                  onChange={(event) => updateField(field, event.target.value)}
-                  placeholder="Catatan tambahan (opsional)"
+                  onChange={(event) =>
+                    updateField(field, event.target.value)
+                  }
+                  placeholder="Masukkan alamat lengkap pelanggan"
                   rows={4}
-                  value={values.note}
+                  value={values.address}
                 />
               ) : (
                 <input
                   aria-invalid={Boolean(error)}
-                  aria-describedby={error ? `${inputId}-error` : undefined}
-                  autoComplete={field === "name" ? "name" : field === "phone" ? "tel" : "email"}
+                  aria-describedby={
+                    error ? `${inputId}-error` : undefined
+                  }
+                  autoComplete={
+                    field === "name"
+                      ? "name"
+                      : field === "phone"
+                        ? "tel"
+                        : "email"
+                  }
                   id={inputId}
-                  onChange={(event) => updateField(field, event.target.value)}
+                  onChange={(event) =>
+                    updateField(field, event.target.value)
+                  }
                   placeholder={
                     field === "name"
                       ? "Masukkan nama lengkap"
@@ -162,15 +378,25 @@ export default function CashierCustomerForm({
                   value={values[field]}
                 />
               )}
+
               {error && (
-                <span className="cashier-field-error" id={`${inputId}-error`}>
+                <span
+                  className="cashier-field-error"
+                  id={`${inputId}-error`}
+                >
                   {error}
                 </span>
               )}
             </div>
           );
         })}
-        {formError && <p className="cashier-error-banner" role="alert">{formError}</p>}
+
+        {formError && (
+          <p className="cashier-error-banner" role="alert">
+            {formError}
+          </p>
+        )}
+
         <div className="cashier-form-actions">
           <Link
             className="cashier-button cashier-button--secondary"
@@ -178,8 +404,13 @@ export default function CashierCustomerForm({
           >
             Batal
           </Link>
-          <button className="cashier-button cashier-button--primary" type="submit">
-            Simpan
+
+          <button
+            className="cashier-button cashier-button--primary"
+            disabled={saving}
+            type="submit"
+          >
+            {saving ? "Menyimpan..." : "Simpan"}
           </button>
         </div>
       </form>
