@@ -1,8 +1,9 @@
 export type BookingStatus =
-  | "waiting"
-  | "in-progress"
-  | "completed"
-  | "cancelled";
+  | "Menunggu"
+  | "Dikonfirmasi"
+  | "Diproses"
+  | "Selesai"
+  | "Dibatalkan";
 
 export type KapsterBooking = {
   id: string;
@@ -10,12 +11,13 @@ export type KapsterBooking = {
   customerPhone: string;
   customerNote: string;
   serviceId: string;
+  serviceName: string;
+  price: number;
   date: string;
   time: string;
   barberId: string;
   status: BookingStatus;
   statusNote: string;
-  isSample: boolean;
 };
 
 export type KapsterSchedule = {

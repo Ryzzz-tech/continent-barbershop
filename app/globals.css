@@ -4164,6 +4164,11 @@ a {
   color: #995606;
 }
 
+.kapster-status--confirmed {
+  background: #fff3e3;
+  color: #995606;
+}
+
 .kapster-status--in-progress {
   background: #eaf3ff;
   color: #1e5c9e;

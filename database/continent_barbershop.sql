@@ -211,7 +211,7 @@ INSERT INTO transaksi (id_transaksi, tanggal_transaksi, total_harga, metode_pemb
 ('T0001', '2026-10-18', 75000, 'QRIS', 'Lunas', 'P0001', 'KS001'),
 ('T0002', '2026-10-18', 70000, 'Tunai', 'Lunas', 'P0002', 'KS002'),
 ('T0003', '2026-10-19', 30000, 'QRIS', 'Menunggu', 'P0003', 'KS001'),
-('T0004', '2026-10-19', 0, 'Tunai', 'Belum dibayar', 'P0004', 'KS002'),
+('T0004', '2026-10-19', 50000, 'Tunai', 'Belum dibayar', 'P0004', 'KS002'),
 ('T0005', '2026-10-20', 150000, 'QRIS', 'Menunggu', 'P0005', 'KS001');
 
 INSERT INTO detail_transaksi (id_detail, jenis_item, jumlah, harga_satuan, total,
@@ -254,5 +254,3 @@ UNION ALL SELECT 'detail_transaksi', COUNT(*) FROM detail_transaksi
 UNION ALL SELECT 'restok', COUNT(*) FROM restok
 UNION ALL SELECT 'detail_restok', COUNT(*) FROM detail_restok
 ORDER BY nama_tabel;
-
-SELECT * FROM pelanggan;

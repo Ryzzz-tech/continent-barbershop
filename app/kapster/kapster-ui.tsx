@@ -7,22 +7,27 @@ export const bookingStatuses: {
   description: string;
 }[] = [
   {
-    id: "waiting",
+    id: "Menunggu",
     label: "Menunggu",
     description: "Pelanggan sudah datang, menunggu giliran.",
   },
   {
-    id: "in-progress",
+    id: "Dikonfirmasi",
+    label: "Dikonfirmasi",
+    description: "Booking telah dikonfirmasi.",
+  },
+  {
+    id: "Diproses",
     label: "Diproses",
     description: "Pelayanan sedang berlangsung.",
   },
   {
-    id: "completed",
+    id: "Selesai",
     label: "Selesai",
     description: "Pelayanan telah selesai.",
   },
   {
-    id: "cancelled",
+    id: "Dibatalkan",
     label: "Dibatalkan",
     description: "Booking dibatalkan.",
   },
@@ -30,6 +35,17 @@ export const bookingStatuses: {
 
 export function getBookingStatusLabel(status: BookingStatus) {
   return bookingStatuses.find((item) => item.id === status)?.label ?? status;
+}
+
+export function getBookingStatusClass(status: BookingStatus) {
+  const classes: Record<BookingStatus, string> = {
+    Menunggu: "waiting",
+    Dikonfirmasi: "confirmed",
+    Diproses: "in-progress",
+    Selesai: "completed",
+    Dibatalkan: "cancelled",
+  };
+  return classes[status];
 }
 
 export function getScheduleStatusLabel(status: KapsterSchedule["status"]) {

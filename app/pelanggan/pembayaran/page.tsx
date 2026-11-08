@@ -1,236 +1,221 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { Suspense, useCallback, useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAppFeedback } from "../../components/app-feedback";
-import { useCustomerServices } from "../../components/use-customer-services";
-import {
-  customerBarbers,
-  formatTanggal,
-  formatRupiah,
-  isBookingDatePast,
-  isValidDateValue,
-  isValidTimeValue,
-} from "../data";
-import { useCustomerPrototype } from "../components/customer-context";
+import { formatRupiah, formatTanggal } from "../data";
 
 const paymentMethods = [
-  { id: "bank-transfer", label: "Transfer Bank", detail: "Virtual Account" },
-  { id: "qris", label: "QRIS", detail: "Pembayaran QR" },
-  { id: "e-wallet", label: "E-Wallet", detail: "Dompet digital" },
+  { id: "bank-transfer", label: "Transfer Bank", detail: "Virtual Account (simulasi)" },
+  { id: "qris", label: "QRIS", detail: "Pembayaran QR (simulasi)" },
+  { id: "e-wallet", label: "E-Wallet", detail: "Dompet digital (simulasi)" },
 ];
 
-export default function OnlinePaymentPage() {
-  const { bookingDraft, storageError, markBookingDraftPaid } =
-    useCustomerPrototype();
-  const customerServices = useCustomerServices();
+type Booking = {
+  id: string;
+  date: string;
+  time: string;
+  status: string;
+  barberName: string;
+  serviceName: string;
+  price: number;
+  paymentStatus: string;
+  transactionId: string | null;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isBooking(value: unknown): value is Booking {
+  return isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.date === "string" &&
+    typeof value.time === "string" &&
+    typeof value.status === "string" &&
+    typeof value.barberName === "string" &&
+    typeof value.serviceName === "string" &&
+    typeof value.price === "number" &&
+    typeof value.paymentStatus === "string" &&
+    (value.transactionId === null || typeof value.transactionId === "string");
+}
+
+function PaymentPageContent() {
+  const searchParams = useSearchParams();
+  const bookingId = searchParams.get("booking") ?? "";
   const { showToast } = useAppFeedback();
-  const [paymentMethod, setPaymentMethod] = useState("");
-  const service = customerServices.find(
-    (item) => item.id === bookingDraft?.serviceId,
-  );
-  const barber = customerBarbers.find(
-    (item) => item.id === bookingDraft?.barberId,
-  );
-  const draftIsComplete = Boolean(
-    bookingDraft &&
-      service &&
-      barber &&
-      isValidDateValue(bookingDraft.date) &&
-      !isBookingDatePast(bookingDraft.date) &&
-      isValidTimeValue(bookingDraft.time) &&
-      bookingDraft.price === service.price &&
-      bookingDraft.total === service.price,
-  );
-  const isPaid = bookingDraft?.paymentStatus === "paid";
+  const [booking, setBooking] = useState<Booking | null>(null);
+  const [method, setMethod] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  function submitPayment(event: FormEvent<HTMLFormElement>) {
+  const loadBooking = useCallback(async () => {
+    if (!bookingId) {
+      await Promise.resolve();
+      setBooking(null);
+      setError("ID booking tidak ditemukan. Buka pembayaran dari booking yang sudah tersimpan.");
+      setLoading(false);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/booking/${encodeURIComponent(bookingId)}`, {
+        cache: "no-store",
+      });
+      const result: unknown = await response.json();
+      if (!response.ok || !isRecord(result) || !isBooking(result.booking)) {
+        throw new Error(
+          isRecord(result) && typeof result.message === "string"
+            ? result.message
+            : "Ringkasan booking tidak dapat dimuat.",
+        );
+      }
+      setBooking(result.booking);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Ringkasan booking tidak dapat dimuat.");
+    } finally {
+      setLoading(false);
+    }
+  }, [bookingId]);
+
+  useEffect(() => { void Promise.resolve().then(loadBooking); }, [loadBooking]);
+
+  async function submitPayment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!paymentMethod) {
-      showToast(
-        "Metode Pembayaran Belum Dipilih",
-        "Pilih Transfer Bank, QRIS, atau E-Wallet sebelum melanjutkan.",
-        "error",
-      );
+    if (!booking) return;
+    if (!paymentMethods.some((item) => item.id === method)) {
+      showToast("Metode Pembayaran Belum Dipilih", "Pilih salah satu metode sebelum melanjutkan.", "error");
       return;
     }
-    if (!paymentMethods.some((method) => method.id === paymentMethod)) {
-      showToast("Metode Pembayaran Tidak Valid", "Pilih metode pembayaran yang tersedia.", "error");
-      return;
-    }
-
-    const result = markBookingDraftPaid();
-    if (result === "paid") {
-      showToast(
-        "Pembayaran Berhasil!",
-        "Pembayaran berhasil disimulasikan. Status pembayaran booking Anda sekarang adalah Sudah Dibayar.",
-        "success",
+    setSubmitting(true);
+    try {
+      const response = await fetch(`/api/booking/${encodeURIComponent(booking.id)}/payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method }),
+      });
+      const result: unknown = await response.json();
+      if (!response.ok || !isRecord(result) || !isRecord(result.transaction)) {
+        throw new Error(
+          isRecord(result) && typeof result.message === "string"
+            ? result.message
+            : "Pembayaran simulasi tidak dapat diproses.",
+        );
+      }
+      const transactionId =
+        typeof result.transaction.id === "string" ? result.transaction.id : null;
+      const paymentStatus =
+        typeof result.transaction.status === "string"
+          ? result.transaction.status
+          : "Sudah Dibayar";
+      setBooking((current) =>
+        current ? { ...current, paymentStatus, transactionId } : current,
       );
-    } else if (result === "already-paid") {
       showToast(
-        "Pembayaran Sudah Disimulasikan",
-        "Draft booking ini telah berstatus Sudah Dibayar.",
-        "info",
+        result.alreadyPaid === true ? "Pembayaran Sudah Tersimpan" : "Pembayaran Berhasil!",
+        result.alreadyPaid === true
+          ? "Transaksi simulasi untuk booking ini sudah tersimpan sebelumnya."
+          : "Pembayaran berhasil disimulasikan dan transaksinya tersimpan. Tidak ada pembayaran sungguhan yang diproses.",
+        result.alreadyPaid === true ? "info" : "success",
       );
-    } else if (result === "missing") {
-      showToast("Draft Booking Tidak Ditemukan", "Tidak ada draft booking yang dapat diproses.", "error");
-    } else {
+    } catch (paymentError) {
       showToast(
-        "Status Pembayaran Gagal Disimpan",
-        "Pembayaran belum ditandai berhasil karena perubahan tidak tersimpan.",
+        "Pembayaran Gagal",
+        paymentError instanceof Error ? paymentError.message : "Pembayaran simulasi tidak dapat diproses.",
         "error",
       );
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  if (!bookingDraft) {
-    return (
-      <div className="customer-page">
-        <header className="customer-page-heading">
-          <h1>PEMBAYARAN ONLINE</h1>
-          <p>Ringkasan pembayaran booking Anda.</p>
-        </header>
-        {storageError && (
-          <p className="customer-form-error" role="status">
-            {storageError}
-          </p>
-        )}
-        <div className="customer-empty-state">
-          <span className="empty-state-icon" aria-hidden="true">▤</span>
-          <h2>Belum ada draft booking</h2>
-          <p>
-            Lengkapi formulir booking untuk meninjau pilihan metode pembayaran.
-          </p>
-          <Link className="customer-primary-button" href="/pelanggan/booking/buat">
-            Buat Booking
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (!draftIsComplete || !service || !barber) {
-    return (
-      <div className="customer-page">
-        <header className="customer-page-heading">
-          <h1>PEMBAYARAN ONLINE</h1>
-          <p>Lengkapi draft booking sebelum memilih metode pembayaran.</p>
-        </header>
-        {storageError && (
-          <p className="customer-form-error" role="status">
-            {storageError}
-          </p>
-        )}
-        <div className="customer-empty-state">
-          <span className="empty-state-icon" aria-hidden="true">▤</span>
-          <h2>Draft booking belum lengkap</h2>
-          <p>
-            Draft {bookingDraft.reference} belum memiliki pilihan layanan,
-            kapster, tanggal, atau waktu yang valid. Draft belum menjadi booking.
-          </p>
-          <Link
-            className="customer-primary-button"
-            href={`/pelanggan/booking/buat${service ? `?layanan=${encodeURIComponent(service.id)}` : ""}`}
-          >
-            Lengkapi Draft Booking
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const isPaid = booking?.paymentStatus === "Sudah Dibayar" || booking?.paymentStatus === "Lunas";
 
   return (
     <div className="customer-page">
-      <Link className="customer-back-link" href="/pelanggan/booking/buat">
-        <span aria-hidden="true">←</span> Kembali ke Form Booking
+      <Link className="customer-back-link" href={bookingId ? `/pelanggan/booking/${encodeURIComponent(bookingId)}` : "/pelanggan/booking"}>
+        <span aria-hidden="true">←</span> Kembali ke Booking
       </Link>
       <header className="customer-page-heading">
         <h1>PEMBAYARAN ONLINE</h1>
-        <p>Tinjau draft dan pilih metode pembayaran.</p>
+        <p>Ringkasan booking dan simulasi pembayaran.</p>
       </header>
-      {storageError && (
-        <p className="customer-form-error" role="status">
-          {storageError}
-        </p>
+
+      {loading && <div className="customer-empty-state" aria-busy="true"><p>Memuat booking...</p></div>}
+      {!loading && error && (
+        <div className="customer-empty-state" role="alert">
+          <h2>Booking tidak dapat dimuat</h2>
+          <p>{error}</p>
+          <button className="customer-outline-button" onClick={() => { setLoading(true); setError(""); void loadBooking(); }} type="button">Coba lagi</button>
+          <Link className="customer-primary-button" href="/pelanggan/booking">Lihat Booking Saya</Link>
+        </div>
       )}
-
-      <div className="payment-layout">
-        <section className="customer-panel">
-          <h2>Pilih Metode Pembayaran</h2>
-          <form onSubmit={submitPayment}>
-            <div className="payment-method-list">
-              {paymentMethods.map((method) => (
-                <label
-                  className={`payment-method${paymentMethod === method.id ? " is-selected" : ""}`}
-                  key={method.id}
-                >
-                  <input
-                    checked={paymentMethod === method.id}
-                    disabled={isPaid}
-                    name="payment-method"
-                    onChange={() => {
-                      setPaymentMethod(method.id);
-                    }}
-                    type="radio"
-                    value={method.id}
-                  />
-                  <span className="payment-method__mark" aria-hidden="true">
-                    {method.id === "qris" ? "▦" : method.id === "e-wallet" ? "▣" : "▤"}
-                  </span>
-                  <span>
-                    <strong>{method.label}</strong>
-                    <small>{method.detail}</small>
-                  </span>
-                </label>
-              ))}
-            </div>
-            <p className="customer-field-hint">
-              Pembayaran hanya disimulasikan untuk prototipe. Tidak ada transaksi
-              keuangan, verifikasi bank, atau bukti transaksi yang dibuat.
-            </p>
-            <button
-              className="customer-primary-button"
-              disabled={isPaid}
-              type="submit"
-            >
-              {isPaid ? "Pembayaran Berhasil Disimulasikan" : "Lanjutkan Pembayaran"}
-            </button>
-          </form>
-        </section>
-
-        <aside className="booking-summary-panel">
-          <h2>Ringkasan Booking</h2>
-          <dl className="customer-detail-list">
-            <div>
-              <dt>Referensi Draft</dt>
-              <dd>{bookingDraft.reference}</dd>
-            </div>
-            <div>
-              <dt>Layanan</dt>
-              <dd>{service.name}</dd>
-            </div>
-            <div>
-              <dt>Kapster</dt>
-              <dd>{barber?.name ?? "Belum dipilih"}</dd>
-            </div>
-            <div>
-              <dt>Tanggal</dt>
-              <dd>{formatTanggal(bookingDraft.date)}</dd>
-            </div>
-            <div>
-              <dt>Waktu</dt>
-              <dd>{bookingDraft.time}</dd>
-            </div>
-            <div className="booking-summary-total">
-              <dt>Total</dt>
-              <dd>{formatRupiah(bookingDraft.total)}</dd>
-            </div>
-          </dl>
-          <span className={`status-pill ${isPaid ? "status-pill--active" : "status-pill--draft"}`}>
-            {isPaid ? "Sudah Dibayar" : "Belum Dibayar"}
-          </span>
-        </aside>
-      </div>
+      {!loading && !error && booking && (
+        <div className="payment-layout">
+          <section className="customer-panel">
+            <h2>Pilih Metode Pembayaran</h2>
+            <form onSubmit={submitPayment}>
+              <div className="payment-method-list">
+                {paymentMethods.map((item) => (
+                  <label
+                    className={`payment-method${method === item.id ? " is-selected" : ""}`}
+                    key={item.id}
+                  >
+                    <input
+                      checked={method === item.id}
+                      disabled={isPaid || submitting}
+                      name="payment-method"
+                      onChange={() => setMethod(item.id)}
+                      type="radio"
+                      value={item.id}
+                    />
+                    <span className="payment-method__mark" aria-hidden="true">
+                      {item.id === "qris" ? "▦" : item.id === "e-wallet" ? "▣" : "▤"}
+                    </span>
+                    <span><strong>{item.label}</strong><small>{item.detail}</small></span>
+                  </label>
+                ))}
+              </div>
+              <p className="customer-field-hint">
+                Pembayaran ini hanya simulasi prototipe. Tidak ada uang, verifikasi bank, kode QR, atau bukti transaksi sungguhan.
+              </p>
+              <button className="customer-primary-button" disabled={isPaid || submitting} type="submit">
+                {isPaid
+                  ? "Pembayaran Berhasil Disimulasikan"
+                  : submitting
+                    ? "Memproses Simulasi..."
+                    : "Lanjutkan Pembayaran"}
+              </button>
+            </form>
+          </section>
+          <aside className="booking-summary-panel">
+            <h2>Ringkasan Booking</h2>
+            <dl className="customer-detail-list">
+              <div><dt>ID Booking</dt><dd>{booking.id}</dd></div>
+              <div><dt>Layanan</dt><dd>{booking.serviceName}</dd></div>
+              <div><dt>Kapster</dt><dd>{booking.barberName}</dd></div>
+              <div><dt>Tanggal</dt><dd>{formatTanggal(booking.date)}</dd></div>
+              <div><dt>Waktu</dt><dd>{booking.time} WIB</dd></div>
+              <div className="booking-summary-total"><dt>Total</dt><dd>{formatRupiah(booking.price)}</dd></div>
+            </dl>
+            <span className={`status-pill ${isPaid ? "status-pill--active" : "status-pill--draft"}`}>
+              {isPaid ? "Sudah Dibayar" : "Belum Dibayar"}
+            </span>
+            {booking.transactionId && (
+              <p className="customer-field-hint">Transaksi simulasi: {booking.transactionId}</p>
+            )}
+          </aside>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function OnlinePaymentPage() {
+  return (
+    <Suspense fallback={<div className="customer-page" aria-busy="true"><p>Memuat pembayaran...</p></div>}>
+      <PaymentPageContent />
+    </Suspense>
   );
 }

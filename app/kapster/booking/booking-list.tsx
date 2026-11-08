@@ -1,43 +1,80 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { useCustomerServices } from "../../components/use-customer-services";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatTanggal } from "../../pelanggan/data";
-import { useKapsterPrototype } from "../kapster-context";
+import type { KapsterBooking } from "../prototype-types";
 import {
   bookingStatuses,
+  getBookingStatusClass,
   getBookingStatusLabel,
   KapsterPageHeading,
-  KapsterPrototypeNote,
 } from "../kapster-ui";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isBooking(value: unknown): value is KapsterBooking {
+  return isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.customerName === "string" &&
+    typeof value.customerPhone === "string" &&
+    typeof value.customerNote === "string" &&
+    typeof value.serviceId === "string" &&
+    typeof value.serviceName === "string" &&
+    typeof value.price === "number" &&
+    typeof value.date === "string" &&
+    typeof value.time === "string" &&
+    typeof value.barberId === "string" &&
+    typeof value.status === "string" &&
+    typeof value.statusNote === "string";
+}
+
 export default function KapsterBookingList() {
-  const { bookings, activeBarberId } = useKapsterPrototype();
-  const customerServices = useCustomerServices();
+  const [bookings, setBookings] = useState<KapsterBooking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  const loadBookings = useCallback(async () => {
+    try {
+      const response = await fetch("/api/booking", { cache: "no-store" });
+      const result: unknown = await response.json();
+      if (!response.ok || !isRecord(result) || !Array.isArray(result.bookings) || !result.bookings.every(isBooking)) {
+        throw new Error(
+          isRecord(result) && typeof result.message === "string"
+            ? result.message
+            : "Daftar booking tidak dapat dimuat.",
+        );
+      }
+      setBookings(result.bookings);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Daftar booking tidak dapat dimuat.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void Promise.resolve().then(loadBookings); }, [loadBookings]);
+
   const filteredBookings = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("id-ID");
     return bookings
-      .filter((booking) => booking.barberId === activeBarberId)
       .filter((booking) => {
-        const service = customerServices.find(
-          (item) => item.id === booking.serviceId,
-        );
         const matchesQuery =
           !normalizedQuery ||
           booking.customerName.toLocaleLowerCase("id-ID").includes(normalizedQuery) ||
           booking.id.toLocaleLowerCase("id-ID").includes(normalizedQuery) ||
-          (service?.name.toLocaleLowerCase("id-ID").includes(normalizedQuery) ?? false);
-        const matchesStatus =
-          statusFilter === "all" || booking.status === statusFilter;
+          booking.serviceName.toLocaleLowerCase("id-ID").includes(normalizedQuery);
+        const matchesStatus = statusFilter === "all" || booking.status === statusFilter;
         return matchesQuery && matchesStatus;
       })
       .sort((left, right) =>
         `${left.date}T${left.time}`.localeCompare(`${right.date}T${right.time}`),
       );
-  }, [activeBarberId, bookings, customerServices, query, statusFilter]);
+  }, [bookings, query, statusFilter]);
 
   return (
     <div className="cashier-page kapster-page">
@@ -45,10 +82,6 @@ export default function KapsterBookingList() {
         title="Daftar Booking"
         description="Kelola daftar booking pelanggan dan pantau status pelayanan."
       />
-      <KapsterPrototypeNote>
-        Daftar hanya menampilkan booking prototipe yang ditugaskan kepada
-        Kapster Rizky Pratama (K0001).
-      </KapsterPrototypeNote>
       <section className="cashier-panel cashier-table-panel kapster-panel kapster-table-panel">
         <div className="kapster-toolbar">
           <label className="cashier-search kapster-search">
@@ -75,62 +108,63 @@ export default function KapsterBookingList() {
             </select>
           </label>
         </div>
-        <div className="kapster-table-scroll">
-          <table className="cashier-table kapster-table">
-            <thead>
-              <tr>
-                <th scope="col">No.</th>
-                <th scope="col">ID Booking</th>
-                <th scope="col">Nama Pelanggan</th>
-                <th scope="col">Layanan</th>
-                <th scope="col">Tanggal &amp; Waktu</th>
-                <th scope="col">Status</th>
-                <th scope="col">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredBookings.map((booking, index) => {
-                const service = customerServices.find(
-                  (item) => item.id === booking.serviceId,
-                );
-                return (
-                  <tr key={booking.id}>
-                    <td>{String(index + 1).padStart(2, "0")}</td>
-                    <td className="kapster-booking-id">{booking.id}</td>
-                    <td>
-                      {booking.customerName}
-                      {booking.isSample && <small className="kapster-sample-tag">Prototipe</small>}
-                    </td>
-                    <td>{service?.name ?? "Layanan tidak tersedia"}</td>
-                    <td>{formatTanggal(booking.date)}<small className="kapster-table-subtext">{booking.time} WIB</small></td>
-                    <td>
-                      <span className={`kapster-status kapster-status--${booking.status}`}>
-                        {getBookingStatusLabel(booking.status)}
-                      </span>
-                    </td>
-                    <td>
-                      <Link
-                        className="kapster-row-action"
-                        href={`/kapster/booking/${encodeURIComponent(booking.id)}`}
-                      >
-                        Lihat Detail
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        {filteredBookings.length === 0 && (
-          <div className="kapster-empty-state">
-            <h2>{query || statusFilter !== "all" ? "Booking tidak ditemukan" : "Belum ada booking"}</h2>
-            <p>
-              {query || statusFilter !== "all"
-                ? "Ubah kata pencarian atau filter status untuk melihat hasil lain."
-                : "Booking yang ditugaskan kepada Anda akan tampil di sini."}
-            </p>
+        {loading && <div className="kapster-empty-state" aria-busy="true"><p>Memuat booking...</p></div>}
+        {!loading && error && (
+          <div className="kapster-empty-state" role="alert">
+            <h2>Booking tidak dapat dimuat</h2>
+            <p>{error}</p>
+            <button className="kapster-row-action" onClick={() => { setLoading(true); setError(""); void loadBookings(); }} type="button">Coba lagi</button>
           </div>
+        )}
+        {!loading && !error && (
+          <>
+            <div className="kapster-table-scroll">
+              <table className="cashier-table kapster-table">
+                <thead>
+                  <tr>
+                    <th scope="col">No.</th>
+                    <th scope="col">ID Booking</th>
+                    <th scope="col">Nama Pelanggan</th>
+                    <th scope="col">Layanan</th>
+                    <th scope="col">Tanggal &amp; Waktu</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredBookings.map((booking, index) => (
+                    <tr key={booking.id}>
+                      <td>{String(index + 1).padStart(2, "0")}</td>
+                      <td className="kapster-booking-id">{booking.id}</td>
+                      <td>{booking.customerName}</td>
+                      <td>{booking.serviceName}</td>
+                      <td>{formatTanggal(booking.date)}<small className="kapster-table-subtext">{booking.time} WIB</small></td>
+                      <td>
+                        <span className={`kapster-status kapster-status--${getBookingStatusClass(booking.status)}`}>
+                          {getBookingStatusLabel(booking.status)}
+                        </span>
+                      </td>
+                      <td>
+                        <Link className="kapster-row-action" href={`/kapster/booking/${encodeURIComponent(booking.id)}`}>
+                          Lihat Detail
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {filteredBookings.length === 0 && (
+              <div className="kapster-empty-state">
+                <h2>{query || statusFilter !== "all" ? "Booking tidak ditemukan" : "Belum ada booking"}</h2>
+                <p>
+                  {query || statusFilter !== "all"
+                    ? "Ubah kata pencarian atau filter status untuk melihat hasil lain."
+                    : "Booking yang ditugaskan kepada Anda akan tampil di sini."}
+                </p>
+              </div>
+            )}
+          </>
         )}
       </section>
     </div>

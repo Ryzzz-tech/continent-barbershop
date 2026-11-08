@@ -2,224 +2,202 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
-import { useCustomerServices } from "../../components/use-customer-services";
-import {
-  customerBarbers,
-  formatRupiah,
-  isBookingDatePast,
-  isValidDateValue,
-  isValidTimeValue,
-} from "../utils";
-import { useCashierPrototype } from "../cashier-context";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useAppFeedback } from "../../components/app-feedback";
+import { formatRupiah, isValidDateValue } from "../../pelanggan/data";
 import { CashierPageHeading, CashierPrototypeNote } from "../cashier-ui";
 
-type BookingFormValues = {
-  customerName: string;
-  serviceId: string;
-  date: string;
-  time: string;
-  barberId: string;
-};
+type Option = { id: string; name: string };
+type Service = Option & { price: number; duration: number };
+type Slot = { barberId: string; date: string; time: string };
 
-type BookingField = keyof BookingFormValues;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isOptions(value: unknown): value is { customers: Option[]; services: Service[]; barbers: Option[] } {
+  return isRecord(value) &&
+    Array.isArray(value.customers) &&
+    Array.isArray(value.services) &&
+    Array.isArray(value.barbers) &&
+    value.customers.every((item) => isRecord(item) && typeof item.id === "string" && typeof item.name === "string") &&
+    value.services.every((item) => isRecord(item) && typeof item.id === "string" && typeof item.name === "string" && typeof item.price === "number" && typeof item.duration === "number") &&
+    value.barbers.every((item) => isRecord(item) && typeof item.id === "string" && typeof item.name === "string");
+}
+
+function isSlots(value: unknown): value is { slots: Slot[] } {
+  return isRecord(value) && Array.isArray(value.slots) && value.slots.every((item) =>
+    isRecord(item) && typeof item.barberId === "string" && typeof item.date === "string" && typeof item.time === "string",
+  );
+}
 
 export default function CashierBookingForm() {
   const router = useRouter();
-  const { customers, bookings, bookingDraft, setBookingDraft } =
-    useCashierPrototype();
-  const customerServices = useCustomerServices();
-  const [values, setValues] = useState<BookingFormValues>({
-    customerName: bookingDraft?.customerName ?? "",
-    serviceId: bookingDraft?.serviceId ?? "",
-    date: bookingDraft?.date ?? "",
-    time: bookingDraft?.time ?? "",
-    barberId: bookingDraft?.barberId ?? "",
-  });
-  const [errors, setErrors] = useState<Partial<Record<BookingField, string>>>({});
+  const { showToast } = useAppFeedback();
+  const [customers, setCustomers] = useState<Option[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [barbers, setBarbers] = useState<Option[]>([]);
+  const [customerId, setCustomerId] = useState("");
+  const [serviceId, setServiceId] = useState("");
+  const [barberId, setBarberId] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
-  const knownNames = Array.from(
-    new Set([
-      ...customers.map((customer) => customer.name),
-      ...bookings.map((booking) => booking.customerName),
-    ]),
-  );
 
-  function updateField(field: BookingField, value: string) {
-    setValues((current) => ({ ...current, [field]: value }));
-    setErrors((current) => ({ ...current, [field]: undefined }));
-    setFormError("");
-  }
+  const service = services.find((item) => item.id === serviceId);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  const loadOptions = useCallback(async () => {
+    try {
+      const response = await fetch("/api/booking/options", { cache: "no-store" });
+      const result: unknown = await response.json();
+      if (!response.ok || !isOptions(result)) {
+        throw new Error(isRecord(result) && typeof result.message === "string" ? result.message : "Data booking tidak dapat dimuat.");
+      }
+      setCustomers(result.customers);
+      setServices(result.services);
+      setBarbers(result.barbers);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Data booking tidak dapat dimuat.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void Promise.resolve().then(loadOptions); }, [loadOptions]);
+
+  useEffect(() => {
+    if (!date || !serviceId || !barberId) return;
+    const controller = new AbortController();
+    async function loadSlots() {
+      try {
+        const query = new URLSearchParams({ date, serviceId, barberId });
+        const response = await fetch(`/api/jadwal/kapster?${query}`, { cache: "no-store", signal: controller.signal });
+        const result: unknown = await response.json();
+        if (!response.ok || !isSlots(result)) {
+          throw new Error(isRecord(result) && typeof result.message === "string" ? result.message : "Slot jadwal tidak dapat dimuat.");
+        }
+        setSlots(result.slots);
+        setTime((current) => result.slots.some((slot) => slot.time === current) ? current : "");
+      } catch (loadError) {
+        if (loadError instanceof DOMException && loadError.name === "AbortError") return;
+        setFormError(loadError instanceof Error ? loadError.message : "Slot jadwal tidak dapat dimuat.");
+      } finally {
+        if (!controller.signal.aborted) setLoadingSlots(false);
+      }
+    }
+    void loadSlots();
+    return () => controller.abort();
+  }, [barberId, date, serviceId]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const nextErrors: Partial<Record<BookingField, string>> = {};
-    if (!values.customerName.trim()) {
-      nextErrors.customerName = "Masukkan nama pelanggan.";
+    setFormError("");
+    if (!customerId || !customers.some((customer) => customer.id === customerId)) {
+      setFormError("Pilih pelanggan dari data yang tersedia.");
+      return;
     }
-    if (!customerServices.some((service) => service.id === values.serviceId)) {
-      nextErrors.serviceId = "Pilih layanan dari katalog.";
+    if (!service || !barbers.some((barber) => barber.id === barberId)) {
+      setFormError("Pilih layanan dan kapster yang tersedia.");
+      return;
     }
-    if (!isValidDateValue(values.date)) {
-      nextErrors.date = "Pilih tanggal pelayanan yang valid.";
-    } else if (isBookingDatePast(values.date)) {
-      nextErrors.date = "Tanggal pelayanan tidak boleh sudah berlalu.";
+    if (!isValidDateValue(date) || date < new Date().toLocaleDateString("sv-SE")) {
+      setFormError("Pilih tanggal pelayanan yang valid.");
+      return;
     }
-    if (!isValidTimeValue(values.time)) {
-      nextErrors.time = "Pilih waktu pelayanan yang valid.";
-    }
-    if (!customerBarbers.some((barber) => barber.id === values.barberId)) {
-      nextErrors.barberId = "Pilih kapster.";
-    }
-
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
-
-    const service = customerServices.find(
-      (item) => item.id === values.serviceId,
-    );
-    if (!service) {
-      setFormError("Layanan tidak ditemukan pada katalog.");
+    if (!slots.some((slot) => slot.time === time)) {
+      setFormError("Pilih slot jadwal yang tersedia.");
       return;
     }
 
-    setBookingDraft({
-      id: `booking-${crypto.randomUUID()}`,
-      customerName: values.customerName.trim(),
-      serviceId: service.id,
-      serviceName: service.name,
-      date: values.date,
-      time: values.time,
-      barberId: values.barberId,
-      isSample: false,
-      saved: false,
-    });
-    router.push("/kasir/booking/detail");
+    setSaving(true);
+    try {
+      const response = await fetch("/api/booking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId, serviceId, barberId, date, time }),
+      });
+      const result: unknown = await response.json();
+      if (!response.ok || !isRecord(result) || !isRecord(result.booking) || typeof result.booking.id !== "string") {
+        throw new Error(isRecord(result) && typeof result.message === "string" ? result.message : "Booking tidak dapat dicatat.");
+      }
+      showToast("Booking Berhasil Dicatat", `Booking ${result.booking.id} tersimpan di PostgreSQL.`, "success");
+      router.push(`/kasir/booking/detail?id=${encodeURIComponent(result.booking.id)}`);
+    } catch (saveError) {
+      const message = saveError instanceof Error ? saveError.message : "Booking tidak dapat dicatat.";
+      setFormError(message);
+      showToast("Pencatatan Booking Gagal", message, "error");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div className="cashier-page">
-      <CashierPageHeading
-        title="Catat Booking"
-        description="Masukkan informasi pelanggan dan jadwal pelayanan."
-      />
-      <CashierPrototypeNote>
-        Data booking hanya disimpan sementara pada state prototipe. Jadwal
-        kapster belum terhubung ke pemeriksaan ketersediaan.
-      </CashierPrototypeNote>
+      <CashierPageHeading title="Catat Booking" description="Masukkan informasi pelanggan dan jadwal pelayanan." />
+      <CashierPrototypeNote>Booking dibuat dengan data pelanggan, layanan, dan jadwal yang diverifikasi server serta disimpan di PostgreSQL.</CashierPrototypeNote>
+      {error && <div className="cashier-error-banner" role="alert">{error}<button className="cashier-text-link" onClick={() => { setLoading(true); setError(""); void loadOptions(); }} type="button">Coba lagi</button></div>}
       <form className="cashier-form-panel" onSubmit={submit} noValidate>
         <div className="cashier-form-grid">
           <div className="cashier-field cashier-field--full">
-            <label htmlFor="booking-customer">Nama Pelanggan</label>
-            <input
-              aria-invalid={Boolean(errors.customerName)}
-              aria-describedby={errors.customerName ? "booking-customer-error" : undefined}
-              autoComplete="off"
-              id="booking-customer"
-              list="cashier-customer-names"
-              onChange={(event) => updateField("customerName", event.target.value)}
-              placeholder="Pilih atau masukkan nama pelanggan"
-              value={values.customerName}
-            />
-            <datalist id="cashier-customer-names">
-              {knownNames.map((name) => <option key={name} value={name} />)}
-            </datalist>
-            {errors.customerName && (
-              <span className="cashier-field-error" id="booking-customer-error">
-                {errors.customerName}
-              </span>
-            )}
+            <label htmlFor="booking-customer">Pelanggan</label>
+            <select id="booking-customer" onChange={(event) => setCustomerId(event.target.value)} value={customerId}>
+              <option value="">{loading ? "Memuat pelanggan..." : "Pilih pelanggan"}</option>
+              {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+            </select>
           </div>
-
           <div className="cashier-field">
             <label htmlFor="booking-service">Layanan</label>
-            <select
-              aria-invalid={Boolean(errors.serviceId)}
-              aria-describedby={errors.serviceId ? "booking-service-error" : undefined}
-              id="booking-service"
-              onChange={(event) => updateField("serviceId", event.target.value)}
-              value={values.serviceId}
-            >
+            <select id="booking-service" onChange={(event) => {
+              const nextServiceId = event.target.value;
+              setServiceId(nextServiceId);
+              setSlots([]);
+              setTime("");
+              setLoadingSlots(Boolean(nextServiceId && barberId && date));
+            }} value={serviceId}>
               <option value="">Pilih layanan</option>
-              {customerServices.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.name} — {formatRupiah(service.price)}
-                </option>
-              ))}
+              {services.map((item) => <option key={item.id} value={item.id}>{item.name} — {formatRupiah(item.price)}</option>)}
             </select>
-            {errors.serviceId && (
-              <span className="cashier-field-error" id="booking-service-error">
-                {errors.serviceId}
-              </span>
-            )}
           </div>
-
           <div className="cashier-field">
             <label htmlFor="booking-barber">Kapster</label>
-            <select
-              aria-invalid={Boolean(errors.barberId)}
-              aria-describedby={errors.barberId ? "booking-barber-error" : undefined}
-              id="booking-barber"
-              onChange={(event) => updateField("barberId", event.target.value)}
-              value={values.barberId}
-            >
+            <select id="booking-barber" onChange={(event) => {
+              const nextBarberId = event.target.value;
+              setBarberId(nextBarberId);
+              setSlots([]);
+              setTime("");
+              setLoadingSlots(Boolean(nextBarberId && serviceId && date));
+            }} value={barberId}>
               <option value="">Pilih kapster</option>
-              {customerBarbers.map((barber) => (
-                <option key={barber.id} value={barber.id}>
-                  {barber.name}
-                </option>
-              ))}
+              {barbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.name}</option>)}
             </select>
-            {errors.barberId && (
-              <span className="cashier-field-error" id="booking-barber-error">
-                {errors.barberId}
-              </span>
-            )}
           </div>
-
           <div className="cashier-field">
             <label htmlFor="booking-date">Tanggal Pelayanan</label>
-            <input
-              aria-invalid={Boolean(errors.date)}
-              aria-describedby={errors.date ? "booking-date-error" : undefined}
-              id="booking-date"
-              onChange={(event) => updateField("date", event.target.value)}
-              type="date"
-              value={values.date}
-            />
-            {errors.date && (
-              <span className="cashier-field-error" id="booking-date-error">
-                {errors.date}
-              </span>
-            )}
+            <input id="booking-date" min={new Date().toLocaleDateString("sv-SE")} onChange={(event) => {
+              const nextDate = event.target.value;
+              setDate(nextDate);
+              setSlots([]);
+              setTime("");
+              setLoadingSlots(Boolean(nextDate && serviceId && barberId));
+            }} type="date" value={date} />
           </div>
-
           <div className="cashier-field">
             <label htmlFor="booking-time">Waktu Pelayanan</label>
-            <input
-              aria-invalid={Boolean(errors.time)}
-              aria-describedby={errors.time ? "booking-time-error" : undefined}
-              id="booking-time"
-              onChange={(event) => updateField("time", event.target.value)}
-              type="time"
-              value={values.time}
-            />
-            {errors.time && (
-              <span className="cashier-field-error" id="booking-time-error">
-                {errors.time}
-              </span>
-            )}
+            <select disabled={!date || !serviceId || !barberId || loadingSlots} id="booking-time" onChange={(event) => setTime(event.target.value)} value={time}>
+              <option value="">{loadingSlots ? "Memeriksa slot..." : "Pilih waktu tersedia"}</option>
+              {slots.map((slot) => <option key={slot.time} value={slot.time}>{slot.time} WIB</option>)}
+            </select>
           </div>
         </div>
-
         {formError && <p className="cashier-error-banner" role="alert">{formError}</p>}
         <div className="cashier-form-actions">
-          <Link className="cashier-button cashier-button--secondary" href="/kasir">
-            Batal
-          </Link>
-          <button className="cashier-button cashier-button--primary" type="submit">
-            Cek Jadwal Kapster
-          </button>
+          <Link className="cashier-button cashier-button--secondary" href="/kasir">Batal</Link>
+          <button className="cashier-button cashier-button--primary" disabled={loading || saving} type="submit">{saving ? "Menyimpan..." : "Simpan Booking"}</button>
         </div>
       </form>
     </div>

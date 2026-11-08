@@ -1,261 +1,457 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
-import { useCustomerServices } from "../../components/use-customer-services";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useAppFeedback } from "../../components/app-feedback";
 import {
-  customerBarbers,
   formatRupiah,
-  formatRupiahInput,
   getTodayDateValue,
-  isBookingDatePast,
-  isValidDateValue,
-  isValidTimeValue,
-  rupiahInputValue,
 } from "../utils";
-import { useCashierPrototype } from "../cashier-context";
 import { CashierPageHeading, CashierPrototypeNote } from "../cashier-ui";
 
-type TransactionValues = {
-  customerName: string;
-  serviceId: string;
-  date: string;
-  time: string;
-  barberId: string;
-  paidAmount: string;
+type Option = {
+  id: string;
+  name: string;
 };
 
-type TransactionField = keyof TransactionValues;
+type Service = Option & {
+  price: number;
+  duration: number;
+};
+
+type Slot = {
+  barberId: string;
+  date: string;
+  time: string;
+};
+
+type PaymentMethod = "tunai" | "transfer" | "qris";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isOptionsResult(
+  value: unknown,
+): value is {
+  customers: Option[];
+  services: Service[];
+  barbers: Option[];
+} {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.customers) &&
+    Array.isArray(value.services) &&
+    Array.isArray(value.barbers) &&
+    value.customers.every(
+      (item) =>
+        isRecord(item) &&
+        typeof item.id === "string" &&
+        typeof item.name === "string",
+    ) &&
+    value.services.every(
+      (item) =>
+        isRecord(item) &&
+        typeof item.id === "string" &&
+        typeof item.name === "string" &&
+        typeof item.price === "number" &&
+        typeof item.duration === "number",
+    ) &&
+    value.barbers.every(
+      (item) =>
+        isRecord(item) &&
+        typeof item.id === "string" &&
+        typeof item.name === "string",
+    )
+  );
+}
+
+function isSlotsResult(value: unknown): value is { slots: Slot[] } {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.slots) &&
+    value.slots.every(
+      (item) =>
+        isRecord(item) &&
+        typeof item.barberId === "string" &&
+        typeof item.date === "string" &&
+        typeof item.time === "string",
+    )
+  );
+}
+
+function getErrorMessage(value: unknown, fallback: string) {
+  return isRecord(value) && typeof value.message === "string"
+    ? value.message
+    : fallback;
+}
 
 export default function CashierTransactionForm() {
   const router = useRouter();
-  const { customers, bookings, setTransactionDraft } = useCashierPrototype();
-  const customerServices = useCustomerServices();
-  const [values, setValues] = useState<TransactionValues>({
-    customerName: "",
-    serviceId: "",
-    date: "",
-    time: "",
-    barberId: "",
-    paidAmount: "",
-  });
-  const [errors, setErrors] = useState<Partial<Record<TransactionField, string>>>({});
+  const { showToast } = useAppFeedback();
+
+  const [customers, setCustomers] = useState<Option[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [barbers, setBarbers] = useState<Option[]>([]);
+  const [customerId, setCustomerId] = useState("");
+  const [serviceId, setServiceId] = useState("");
+  const [barberId, setBarberId] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [paymentMethod, setPaymentMethod] =
+    useState<PaymentMethod>("tunai");
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
-  const service = customerServices.find((item) => item.id === values.serviceId);
-  const knownNames = Array.from(
-    new Set([
-      ...customers.map((customer) => customer.name),
-      ...bookings.map((booking) => booking.customerName),
-    ]),
-  );
 
-  function updateField(field: TransactionField, value: string) {
-    setValues((current) => ({ ...current, [field]: value }));
-    setErrors((current) => ({ ...current, [field]: undefined }));
-    setFormError("");
-  }
+  const service = services.find((item) => item.id === serviceId);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  const loadOptions = useCallback(async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/booking/options", {
+        cache: "no-store",
+      });
+      const result: unknown = await response.json();
+
+      if (!response.ok || !isOptionsResult(result)) {
+        throw new Error(
+          getErrorMessage(result, "Data transaksi tidak dapat dimuat."),
+        );
+      }
+
+      setCustomers(result.customers);
+      setServices(result.services);
+      setBarbers(result.barbers);
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Data transaksi tidak dapat dimuat.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadOptions);
+  }, [loadOptions]);
+
+  useEffect(() => {
+    if (!date || !serviceId || !barberId) {
+      setSlots([]);
+      setTime("");
+      setLoadingSlots(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadSlots() {
+      setLoadingSlots(true);
+      setSlots([]);
+      setTime("");
+      setFormError("");
+
+      try {
+        const query = new URLSearchParams({
+          date,
+          serviceId,
+          barberId,
+        });
+
+        const response = await fetch(
+          `/api/jadwal/kapster?${query.toString()}`,
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          },
+        );
+
+        const result: unknown = await response.json();
+
+        if (!response.ok || !isSlotsResult(result)) {
+          throw new Error(
+            getErrorMessage(result, "Slot jadwal tidak dapat dimuat."),
+          );
+        }
+
+        setSlots(result.slots);
+      } catch (loadError) {
+        if (
+          loadError instanceof DOMException &&
+          loadError.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setFormError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Slot jadwal tidak dapat dimuat.",
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoadingSlots(false);
+        }
+      }
+    }
+
+    void loadSlots();
+
+    return () => controller.abort();
+  }, [barberId, date, serviceId]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const nextErrors: Partial<Record<TransactionField, string>> = {};
-    if (!values.customerName.trim()) {
-      nextErrors.customerName = "Masukkan nama pelanggan.";
-    }
-    if (!service) {
-      nextErrors.serviceId = "Pilih layanan dari katalog.";
-    }
-    if (!isValidDateValue(values.date)) {
-      nextErrors.date = "Pilih tanggal pelayanan yang valid.";
-    } else if (isBookingDatePast(values.date)) {
-      nextErrors.date = "Tanggal pelayanan tidak boleh sudah berlalu.";
-    }
-    if (!isValidTimeValue(values.time)) {
-      nextErrors.time = "Pilih waktu pelayanan yang valid.";
-    }
-    if (!customerBarbers.some((barber) => barber.id === values.barberId)) {
-      nextErrors.barberId = "Pilih kapster.";
-    }
-    const paidAmount = rupiahInputValue(values.paidAmount);
-    if (!Number.isSafeInteger(paidAmount) || paidAmount <= 0) {
-      nextErrors.paidAmount = "Masukkan nominal pembayaran Rupiah yang valid.";
-    } else if (service && paidAmount < service.price) {
-      nextErrors.paidAmount = "Nominal pembayaran tidak boleh kurang dari total tagihan.";
-    }
+    setFormError("");
 
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
-    if (!service) {
-      setFormError("Layanan tidak ditemukan pada katalog.");
+    if (!customers.some((item) => item.id === customerId)) {
+      setFormError("Pilih pelanggan dari data yang tersedia.");
       return;
     }
 
-    const transaction = {
-      id: `transaksi-${crypto.randomUUID()}`,
-      customerName: values.customerName.trim(),
-      serviceId: service.id,
-      serviceName: service.name,
-      date: values.date,
-      time: values.time,
-      barberId: values.barberId,
-      total: service.price,
-      paidAmount,
-      isSample: false,
-      isToday: values.date === getTodayDateValue(),
-    };
-    if (!setTransactionDraft(transaction)) {
-      setFormError("Transaksi prototipe ini sudah tercatat.");
+    if (
+      !service ||
+      !barbers.some((item) => item.id === barberId)
+    ) {
+      setFormError("Pilih layanan dan kapster yang tersedia.");
       return;
     }
-    router.push("/kasir/transaksi/detail");
+
+    if (!date || date < getTodayDateValue()) {
+      setFormError("Pilih tanggal pelayanan yang valid.");
+      return;
+    }
+
+    if (loadingSlots || !slots.some((slot) => slot.time === time)) {
+      setFormError("Pilih slot jadwal yang masih tersedia.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const response = await fetch("/api/kasir/transaksi", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          customerId,
+          serviceId,
+          barberId,
+          date,
+          time,
+          paymentMethod,
+        }),
+      });
+
+      const result: unknown = await response.json();
+
+      if (
+        !response.ok ||
+        !isRecord(result) ||
+        result.success !== true ||
+        !isRecord(result.transaction) ||
+        typeof result.transaction.id !== "string"
+      ) {
+        throw new Error(
+          getErrorMessage(result, "Transaksi tidak dapat disimpan."),
+        );
+      }
+
+      const transactionId = result.transaction.id;
+
+      showToast(
+        "Transaksi Berhasil Disimpan",
+        `Transaksi ${transactionId} dan booking terkait sudah tersimpan di PostgreSQL.`,
+        "success",
+      );
+
+      router.push(
+        `/kasir/transaksi/detail?id=${encodeURIComponent(transactionId)}`,
+      );
+    } catch (saveError) {
+      const message =
+        saveError instanceof Error
+          ? saveError.message
+          : "Transaksi tidak dapat disimpan.";
+
+      setFormError(message);
+      showToast("Pencatatan Transaksi Gagal", message, "error");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div className="cashier-page">
       <CashierPageHeading
         title="Catat Transaksi"
-        description="Masukkan detail layanan dan nominal pembayaran yang diterima."
+        description="Masukkan informasi pelanggan, layanan, jadwal, dan pembayaran."
       />
+
       <CashierPrototypeNote>
-        Ini hanya simulasi pencatatan transaksi lokal. Tidak ada pembayaran
-        eksternal atau penyimpanan database.
+        Booking dan transaksi akan disimpan bersama ke PostgreSQL setelah
+        jadwal dan data pembayaran berhasil diverifikasi.
       </CashierPrototypeNote>
+
+      {error && (
+        <div className="cashier-error-banner" role="alert">
+          {error}
+          <button
+            className="cashier-text-link"
+            onClick={() => void loadOptions()}
+            type="button"
+          >
+            Coba lagi
+          </button>
+        </div>
+      )}
+
       <form className="cashier-form-panel" onSubmit={submit} noValidate>
         <div className="cashier-form-grid">
           <div className="cashier-field cashier-field--full">
-            <label htmlFor="transaction-customer">Nama Pelanggan</label>
-            <input
-              aria-invalid={Boolean(errors.customerName)}
-              aria-describedby={errors.customerName ? "transaction-customer-error" : undefined}
-              autoComplete="off"
+            <label htmlFor="transaction-customer">Pelanggan</label>
+            <select
               id="transaction-customer"
-              list="cashier-customer-names"
-              onChange={(event) => updateField("customerName", event.target.value)}
-              placeholder="Pilih atau masukkan nama pelanggan"
-              value={values.customerName}
-            />
-            <datalist id="cashier-customer-names">
-              {knownNames.map((name) => <option key={name} value={name} />)}
-            </datalist>
-            {errors.customerName && (
-              <span className="cashier-field-error" id="transaction-customer-error">
-                {errors.customerName}
-              </span>
-            )}
+              onChange={(event) => setCustomerId(event.target.value)}
+              value={customerId}
+              disabled={loading}
+            >
+              <option value="">
+                {loading ? "Memuat pelanggan..." : "Pilih pelanggan"}
+              </option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="cashier-field">
             <label htmlFor="transaction-service">Layanan</label>
             <select
-              aria-invalid={Boolean(errors.serviceId)}
-              aria-describedby={errors.serviceId ? "transaction-service-error" : undefined}
               id="transaction-service"
-              onChange={(event) => updateField("serviceId", event.target.value)}
-              value={values.serviceId}
+              onChange={(event) => setServiceId(event.target.value)}
+              value={serviceId}
+              disabled={loading}
             >
               <option value="">Pilih layanan</option>
-              {customerServices.map((item) => (
+              {services.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name} — {formatRupiah(item.price)}
                 </option>
               ))}
             </select>
-            {errors.serviceId && (
-              <span className="cashier-field-error" id="transaction-service-error">
-                {errors.serviceId}
-              </span>
-            )}
           </div>
 
           <div className="cashier-field">
             <label htmlFor="transaction-barber">Kapster</label>
             <select
-              aria-invalid={Boolean(errors.barberId)}
-              aria-describedby={errors.barberId ? "transaction-barber-error" : undefined}
               id="transaction-barber"
-              onChange={(event) => updateField("barberId", event.target.value)}
-              value={values.barberId}
+              onChange={(event) => setBarberId(event.target.value)}
+              value={barberId}
+              disabled={loading}
             >
               <option value="">Pilih kapster</option>
-              {customerBarbers.map((barber) => (
-                <option key={barber.id} value={barber.id}>{barber.name}</option>
+              {barbers.map((barber) => (
+                <option key={barber.id} value={barber.id}>
+                  {barber.name}
+                </option>
               ))}
             </select>
-            {errors.barberId && (
-              <span className="cashier-field-error" id="transaction-barber-error">
-                {errors.barberId}
-              </span>
-            )}
           </div>
 
           <div className="cashier-field">
             <label htmlFor="transaction-date">Tanggal Pelayanan</label>
             <input
-              aria-invalid={Boolean(errors.date)}
-              aria-describedby={errors.date ? "transaction-date-error" : undefined}
               id="transaction-date"
-              onChange={(event) => updateField("date", event.target.value)}
+              min={getTodayDateValue()}
+              onChange={(event) => {
+                setDate(event.target.value);
+                setTime("");
+                setSlots([]);
+              }}
               type="date"
-              value={values.date}
+              value={date}
             />
-            {errors.date && (
-              <span className="cashier-field-error" id="transaction-date-error">
-                {errors.date}
-              </span>
-            )}
           </div>
 
           <div className="cashier-field">
             <label htmlFor="transaction-time">Waktu Pelayanan</label>
-            <input
-              aria-invalid={Boolean(errors.time)}
-              aria-describedby={errors.time ? "transaction-time-error" : undefined}
+            <select
+              disabled={!date || !serviceId || !barberId || loadingSlots}
               id="transaction-time"
-              onChange={(event) => updateField("time", event.target.value)}
-              type="time"
-              value={values.time}
-            />
-            {errors.time && (
-              <span className="cashier-field-error" id="transaction-time-error">
-                {errors.time}
-              </span>
-            )}
+              onChange={(event) => setTime(event.target.value)}
+              value={time}
+            >
+              <option value="">
+                {loadingSlots
+                  ? "Memeriksa slot..."
+                  : "Pilih waktu tersedia"}
+              </option>
+              {slots.map((slot) => (
+                <option key={slot.time} value={slot.time}>
+                  {slot.time} WIB
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="cashier-field cashier-field--full">
-            <label htmlFor="transaction-amount">Nominal Pembayaran</label>
-            <div className="cashier-currency-input">
-              <span aria-hidden="true">Rp</span>
-              <input
-                aria-invalid={Boolean(errors.paidAmount)}
-                aria-describedby={errors.paidAmount ? "transaction-amount-error" : "transaction-amount-hint"}
-                id="transaction-amount"
-                inputMode="numeric"
-                onChange={(event) => updateField("paidAmount", formatRupiahInput(event.target.value))}
-                placeholder="Masukkan nominal pembayaran"
-                type="text"
-                value={values.paidAmount}
-              />
+          <div className="cashier-field">
+            <label htmlFor="transaction-payment-method">
+              Metode Pembayaran
+            </label>
+            <select
+              id="transaction-payment-method"
+              onChange={(event) =>
+                setPaymentMethod(event.target.value as PaymentMethod)
+              }
+              value={paymentMethod}
+            >
+              <option value="tunai">Tunai</option>
+              <option value="transfer">Transfer Bank</option>
+              <option value="qris">QRIS</option>
+            </select>
+          </div>
+
+          <div className="cashier-field">
+            <label>Total Tagihan</label>
+            <div className="cashier-field-hint">
+              {service ? formatRupiah(service.price) : "Pilih layanan terlebih dahulu"}
             </div>
-            {service && (
-              <span className="cashier-field-hint" id="transaction-amount-hint">
-                Total tagihan: {formatRupiah(service.price)}
-              </span>
-            )}
-            {errors.paidAmount && (
-              <span className="cashier-field-error" id="transaction-amount-error">
-                {errors.paidAmount}
-              </span>
-            )}
           </div>
         </div>
-        {formError && <p className="cashier-error-banner" role="alert">{formError}</p>}
+
+        {formError && (
+          <p className="cashier-error-banner" role="alert">
+            {formError}
+          </p>
+        )}
+
         <div className="cashier-form-actions">
-          <Link className="cashier-button cashier-button--secondary" href="/kasir">
+          <Link
+            className="cashier-button cashier-button--secondary"
+            href="/kasir"
+          >
             Batal
           </Link>
-          <button className="cashier-button cashier-button--primary" type="submit">
-            Proses Pembayaran
+          <button
+            className="cashier-button cashier-button--primary"
+            disabled={loading || saving || Boolean(error)}
+            type="submit"
+          >
+            {saving ? "Menyimpan..." : "Proses Pembayaran"}
           </button>
         </div>
       </form>

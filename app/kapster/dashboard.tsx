@@ -1,38 +1,79 @@
 "use client";
 
 import Link from "next/link";
-import { useCustomerServices } from "../components/use-customer-services";
-import { customerBarbers, formatTanggal } from "../pelanggan/data";
-import { useKapsterPrototype } from "./kapster-context";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatTanggal } from "../pelanggan/data";
+import type { KapsterBooking } from "./prototype-types";
 import {
+  getBookingStatusClass,
   getBookingStatusLabel,
   KapsterPageHeading,
   KapsterPrototypeNote,
 } from "./kapster-ui";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isBooking(value: unknown): value is KapsterBooking {
+  return isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.customerName === "string" &&
+    typeof value.customerPhone === "string" &&
+    typeof value.customerNote === "string" &&
+    typeof value.serviceId === "string" &&
+    typeof value.serviceName === "string" &&
+    typeof value.price === "number" &&
+    typeof value.date === "string" &&
+    typeof value.time === "string" &&
+    typeof value.barberId === "string" &&
+    typeof value.status === "string" &&
+    typeof value.statusNote === "string";
+}
+
+function todayInJakarta() {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Jakarta" }).format(new Date());
+}
+
 export default function KapsterDashboard() {
-  const customerServices = useCustomerServices();
-  const { bookings, activeBarberId } = useKapsterPrototype();
-  const assignedBookings = bookings
-    .filter((booking) => booking.barberId === activeBarberId)
-    .sort((left, right) =>
-      `${left.date}T${left.time}`.localeCompare(`${right.date}T${right.time}`),
-    );
-  const todayBookings = assignedBookings.filter(
-    (booking) => booking.date === "2026-11-06",
+  const [bookings, setBookings] = useState<KapsterBooking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadBookings = useCallback(async () => {
+    try {
+      const response = await fetch("/api/booking", { cache: "no-store" });
+      const result: unknown = await response.json();
+      if (!response.ok || !isRecord(result) || !Array.isArray(result.bookings) || !result.bookings.every(isBooking)) {
+        throw new Error(
+          isRecord(result) && typeof result.message === "string"
+            ? result.message
+            : "Ringkasan booking tidak dapat dimuat.",
+        );
+      }
+      setBookings(result.bookings);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Ringkasan booking tidak dapat dimuat.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void Promise.resolve().then(loadBookings); }, [loadBookings]);
+
+  const todayBookings = useMemo(
+    () => bookings.filter((booking) => booking.date === todayInJakarta()),
+    [bookings],
   );
   const waitingCount = todayBookings.filter(
-    (booking) => booking.status === "waiting",
+    (booking) => booking.status === "Menunggu" || booking.status === "Dikonfirmasi",
   ).length;
-  const completedCount = todayBookings.filter(
-    (booking) => booking.status === "completed",
-  ).length;
-  const nextBooking = todayBookings.find(
-    (booking) => booking.status === "waiting" || booking.status === "in-progress",
-  );
-  const barberName =
-    customerBarbers.find((barber) => barber.id === activeBarberId)?.name ??
-    "Kapster";
+  const completedCount = todayBookings.filter((booking) => booking.status === "Selesai").length;
+  const nextBooking = bookings
+    .filter((booking) =>
+      ["Menunggu", "Dikonfirmasi", "Diproses"].includes(booking.status),
+    )
+    .sort((left, right) => `${left.date}T${left.time}`.localeCompare(`${right.date}T${right.time}`))[0];
 
   return (
     <div className="cashier-page kapster-page">
@@ -40,31 +81,32 @@ export default function KapsterDashboard() {
         title="Beranda"
         description="Selamat datang kembali! Pantau booking dan aktivitas pelayanan Anda hari ini."
       />
-      <KapsterPrototypeNote>
-        Data yang ditampilkan adalah prototipe untuk {barberName} (K0001), bukan
-        data dari database. Contoh booking memakai tanggal 6 November 2026.
-      </KapsterPrototypeNote>
+      <KapsterPrototypeNote>Data booking ditampilkan dari database sesuai akun Kapster yang sedang masuk.</KapsterPrototypeNote>
 
+      {error && (
+        <div className="kapster-error-banner" role="alert">
+          {error}
+          <button className="kapster-row-action" onClick={() => { setLoading(true); setError(""); void loadBookings(); }} type="button">Coba lagi</button>
+        </div>
+      )}
       <section className="cashier-metric-grid kapster-metric-grid" aria-label="Ringkasan booking hari ini">
         <article className="cashier-metric-card kapster-metric-card">
           <span className="cashier-metric-icon kapster-metric-icon" aria-hidden="true">▣</span>
-          <div><p>Booking Hari Ini</p><strong>{String(todayBookings.length).padStart(2, "0")}</strong></div>
+          <div><p>Booking Hari Ini</p><strong>{loading ? "—" : String(todayBookings.length).padStart(2, "0")}</strong></div>
         </article>
         <article className="cashier-metric-card kapster-metric-card">
           <span className="cashier-metric-icon kapster-metric-icon kapster-metric-icon--orange" aria-hidden="true">◷</span>
-          <div><p>Menunggu Dilayani</p><strong>{String(waitingCount).padStart(2, "0")}</strong></div>
+          <div><p>Menunggu Dilayani</p><strong>{loading ? "—" : String(waitingCount).padStart(2, "0")}</strong></div>
         </article>
         <article className="cashier-metric-card kapster-metric-card">
           <span className="cashier-metric-icon kapster-metric-icon kapster-metric-icon--green" aria-hidden="true">✓</span>
-          <div><p>Selesai Dilayani</p><strong>{String(completedCount).padStart(2, "0")}</strong></div>
+          <div><p>Selesai Dilayani</p><strong>{loading ? "—" : String(completedCount).padStart(2, "0")}</strong></div>
         </article>
         <article className="cashier-metric-card kapster-metric-card">
           <span className="cashier-metric-icon kapster-metric-icon kapster-metric-icon--blue" aria-hidden="true">♙</span>
           <div>
             <p>Pelanggan Berikutnya</p>
-            <strong className="kapster-next-customer">
-              {nextBooking?.customerName ?? "Belum ada"}
-            </strong>
+            <strong className="kapster-next-customer">{loading ? "Memuat..." : nextBooking?.customerName ?? "Belum ada"}</strong>
             {nextBooking && <small>{nextBooking.time.replace(":", ".")} WIB</small>}
           </div>
         </article>
@@ -72,61 +114,40 @@ export default function KapsterDashboard() {
 
       <section className="cashier-panel kapster-panel kapster-next-panel">
         <div className="kapster-panel-heading">
-          <div>
-            <h2>Jadwal Pelayanan Berikutnya</h2>
-            <p>Booking yang ditugaskan kepada Anda.</p>
-          </div>
-          <Link className="kapster-text-link" href="/kapster/booking">
-            Lihat Semua Booking
-          </Link>
+          <div><h2>Jadwal Pelayanan Berikutnya</h2><p>Booking yang ditugaskan kepada Anda.</p></div>
+          <Link className="kapster-text-link" href="/kapster/booking">Lihat Semua Booking</Link>
         </div>
-        {todayBookings.length ? (
+        {loading ? (
+          <div className="kapster-empty-state" aria-busy="true"><p>Memuat jadwal...</p></div>
+        ) : todayBookings.length ? (
           <div className="kapster-appointment-list">
             {todayBookings
-              .filter(
-                (booking) =>
-                  booking.status === "waiting" || booking.status === "in-progress",
-              )
-              .map((booking) => {
-                const service = customerServices.find(
-                  (item) => item.id === booking.serviceId,
-                );
-                return (
-                  <Link
-                    className="kapster-appointment-card"
-                    href={`/kapster/booking/${encodeURIComponent(booking.id)}`}
-                    key={booking.id}
-                  >
-                    <span className="kapster-appointment-time">
-                      {booking.time.replace(":", ".")}
-                      <small>WIB</small>
-                    </span>
-                    <span className="kapster-appointment-details">
-                      <strong>{booking.customerName}</strong>
-                      <small>{service?.name ?? "Layanan tidak tersedia"}</small>
-                    </span>
-                    <span className={`kapster-status kapster-status--${booking.status}`}>
-                      {getBookingStatusLabel(booking.status)}
-                    </span>
-                  </Link>
-                );
-              })}
+              .filter((booking) => ["Menunggu", "Dikonfirmasi", "Diproses"].includes(booking.status))
+              .map((booking) => (
+                <Link
+                  className="kapster-appointment-card"
+                  href={`/kapster/booking/${encodeURIComponent(booking.id)}`}
+                  key={booking.id}
+                >
+                  <span className="kapster-appointment-time">{booking.time.replace(":", ".")}<small>WIB</small></span>
+                  <span className="kapster-appointment-details"><strong>{booking.customerName}</strong><small>{booking.serviceName}</small></span>
+                  <span className={`kapster-status kapster-status--${getBookingStatusClass(booking.status)}`}>
+                    {getBookingStatusLabel(booking.status)}
+                  </span>
+                </Link>
+              ))}
           </div>
         ) : (
           <div className="kapster-empty-state">
             <h3>Belum ada jadwal pelayanan hari ini</h3>
-            <p>Booking baru yang ditugaskan kepada Anda akan muncul di sini.</p>
+            <p>Booking yang ditugaskan kepada Anda akan muncul di sini.</p>
           </div>
         )}
-        {nextBooking && (
-          <p className="kapster-schedule-date">
-            Jadwal untuk {formatTanggal(nextBooking.date)}.
-          </p>
-        )}
+        {nextBooking && <p className="kapster-schedule-date">Jadwal berikutnya: {formatTanggal(nextBooking.date)}.</p>}
         <div className="kapster-day-summary">
           <span>{todayBookings.length} booking</span>
           <span>{waitingCount} menunggu</span>
-          <span>{todayBookings.filter((booking) => booking.status === "in-progress").length} diproses</span>
+          <span>{todayBookings.filter((booking) => booking.status === "Diproses").length} diproses</span>
           <span>{completedCount} selesai</span>
         </div>
       </section>

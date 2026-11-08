@@ -1,11 +1,14 @@
 import type { ReactNode } from "react";
-import { KapsterPrototypeProvider } from "./kapster-context";
+import { Suspense } from "react";
+import RoleAccess from "@/lib/role-access";
 import KapsterShell from "./components/kapster-shell";
 
 export default function KapsterLayout({ children }: { children: ReactNode }) {
   return (
-    <KapsterPrototypeProvider>
-      <KapsterShell>{children}</KapsterShell>
-    </KapsterPrototypeProvider>
+    <Suspense fallback={null}>
+      <RoleAccess role="kapster">
+        <KapsterShell>{children}</KapsterShell>
+      </RoleAccess>
+    </Suspense>
   );
 }
