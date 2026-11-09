@@ -19,11 +19,12 @@ type FieldName =
   | "fullName"
   | "email"
   | "phone"
+  | "address"
   | "confirmation"
   | "role"
   | "terms";
 type FormValues = Record<
-  "identity" | "password" | "fullName" | "email" | "phone" | "confirmation",
+  "identity" | "password" | "fullName" | "email" | "phone" | "address" | "confirmation",
   string
 >;
 type ValidationErrors = Partial<Record<FieldName, string>>;
@@ -39,6 +40,7 @@ const emptyValues: FormValues = {
   fullName: "",
   email: "",
   phone: "",
+  address: "",
   confirmation: "",
 };
 
@@ -97,6 +99,12 @@ function validateForm(
     errors.phone = "Nomor HP tidak valid.";
   }
 
+  const address = values.address.trim();
+  if (!address) errors.address = "Alamat wajib diisi.";
+  else if (address.length > 500) {
+    errors.address = "Alamat maksimal 500 karakter.";
+  }
+
   if (!values.password) errors.password = "Password wajib diisi.";
   else if (values.password.length < 8) {
     errors.password = "Password minimal 8 karakter.";
@@ -122,6 +130,7 @@ function firstErrorField(errors: ValidationErrors): FieldName | undefined {
     "fullName",
     "email",
     "phone",
+    "address",
     "password",
     "confirmation",
     "terms",
@@ -288,7 +297,7 @@ export default function AuthPage({ variant }: AuthPageProps) {
     }
   }
 
-  function validateAndShowResult(event: FormEvent<HTMLFormElement>) {
+  async function submitRegistration(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitted(true);
 
@@ -304,23 +313,64 @@ export default function AuthPage({ variant }: AuthPageProps) {
       const isEmpty = isAllEmpty(values, termsAccepted);
       setNotice({
         kind: "error",
-        message:
-          isRegister && isEmpty
-            ? "Mohon lengkapi semua data sebelum mendaftar."
-            : isCustomer && isEmpty
-              ? "Mohon lengkapi semua data yang wajib diisi."
-              : "Periksa kembali data yang Anda masukkan.",
+        message: isEmpty
+          ? "Mohon lengkapi semua data sebelum mendaftar."
+          : "Periksa kembali data yang Anda masukkan.",
       });
+
       const firstInvalid = firstErrorField(nextErrors);
       if (firstInvalid) inputRefs.current[firstInvalid]?.focus();
       return;
     }
-    setNotice({
-      kind: "success",
-      message: isRegister
-        ? "Formulir berhasil divalidasi. Fitur registrasi belum terhubung ke server."
-        : "Data valid, tetapi fitur login belum tersedia.",
-    });
+
+    setIsSubmitting(true);
+    setNotice(null);
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: values.fullName,
+          email: values.email,
+          phone: values.phone,
+          address: values.address,
+          password: values.password,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setNotice({
+          kind: "error",
+          message:
+            typeof result?.message === "string"
+              ? result.message
+              : "Registrasi gagal. Periksa kembali data Anda.",
+        });
+        return;
+      }
+
+      setValues(emptyValues);
+      setTermsAccepted(false);
+      setErrors({});
+      setSubmitted(false);
+      setNotice({
+        kind: "success",
+        message:
+          typeof result?.message === "string"
+            ? result.message
+            : "Registrasi berhasil. Silakan login menggunakan akun Anda.",
+      });
+    } catch {
+      setNotice({
+        kind: "error",
+        message: "Server tidak dapat dihubungi. Silakan coba kembali.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
@@ -607,7 +657,7 @@ export default function AuthPage({ variant }: AuthPageProps) {
               className="auth-form auth-form--register"
               method="post"
               noValidate
-              onSubmit={validateAndShowResult}
+              onSubmit={submitRegistration}
             >
               <div className="auth-fields auth-fields--register">
                 <TextField
@@ -652,6 +702,20 @@ export default function AuthPage({ variant }: AuthPageProps) {
                   placeholder="Contoh: 081234567890"
                   type="tel"
                   value={values.phone}
+                  variant="register"
+                />
+                <TextField
+                  autoComplete="street-address"
+                  error={errors.address}
+                  id="register-address"
+                  inputRef={(element) => {
+                    inputRefs.current.address = element;
+                  }}
+                  label="Alamat"
+                  name="address"
+                  onChange={updateValues}
+                  placeholder="Masukkan alamat lengkap"
+                  value={values.address}
                   variant="register"
                 />
                 <PasswordField
@@ -702,9 +766,19 @@ export default function AuthPage({ variant }: AuthPageProps) {
                 </label>
                 <FieldError id="terms-error" message={errors.terms} />
               </div>
-              <button className="auth-submit auth-submit--register" type="submit">
-                Daftar
+              <button
+                className="auth-submit auth-submit--register"
+                disabled={isSubmitting}
+                type="submit"
+              >
+                {isSubmitting ? "Memproses..." : "Daftar"}
               </button>
+              {notice?.kind === "success" && (
+                <p className="auth-registration">
+                  <span>Sudah memiliki akun?</span>
+                  <Link href="/login">Masuk sekarang</Link>
+                </p>
+              )}
             </form>
           )}
         </div>
