@@ -98,7 +98,7 @@ export default function KapsterShell({
         </Suspense>
         <div className="cashier-sidebar-account kapster-sidebar-account">
           <span>Akun Saya</span>
-          <LogoutButton onError={setNotice}>
+          <LogoutButton redirectTo="/karyawan/login" onError={setNotice}>
             Keluar
           </LogoutButton>
         </div>

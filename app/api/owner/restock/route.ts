@@ -1,4 +1,4 @@
-﻿import { getAuthenticatedAccount } from "@/lib/auth";
+import { getAuthenticatedAccount } from "@/lib/auth";
 import {
   assertRole,
   BookingApiError,
@@ -43,6 +43,7 @@ export async function GET() {
     assertRole(await getAuthenticatedAccount(), ["owner"]);
 
     const products = await prisma.produk.findMany({
+      where: { is_active: true },
       orderBy: { id_produk: "asc" },
       select: {
         id_produk: true,
@@ -119,11 +120,16 @@ export async function POST(request: Request) {
           nama_produk: true,
           stok: true,
           satuan: true,
+          is_active: true,
         },
       });
 
       if (!product) {
         throw new BookingApiError("Produk tidak ditemukan.", 404);
+      }
+
+      if (!product.is_active) {
+        throw new BookingApiError("Produk yang tidak aktif tidak dapat direstock.", 409);
       }
 
       if (product.stok + quantity > 2_147_483_647) {
@@ -203,7 +209,7 @@ export async function POST(request: Request) {
     return Response.json(
       {
         success: true,
-        message: "Restock berhasil disimpan ke PostgreSQL.",
+        message: "Restock berhasil disimpan.",
         restock: result,
       },
       { status: 201 },

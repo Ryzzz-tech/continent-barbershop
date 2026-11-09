@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { OwnerPageHeading, OwnerPrototypeNote } from "../owner-ui";
+import { OwnerPageHeading } from "../owner-ui";
 
 type CatalogKind = "Layanan" | "Produk";
 
@@ -12,6 +12,7 @@ type CatalogValues = {
   kind: CatalogKind | "";
   price: string;
   duration: string;
+  description: string;
   unit: string;
 };
 
@@ -23,6 +24,7 @@ type CatalogRecord = {
   kind: CatalogKind;
   price: number;
   duration?: number;
+  description?: string;
   stock?: number;
   unit?: string;
   isActive: boolean;
@@ -33,6 +35,7 @@ const blankValues: CatalogValues = {
   kind: "",
   price: "",
   duration: "",
+  description: "",
   unit: "",
 };
 
@@ -53,7 +56,7 @@ function isCatalogRecord(value: unknown): value is CatalogRecord {
   }
 
   if (value.kind === "Layanan") {
-    return typeof value.duration === "number";
+    return typeof value.duration === "number" && (value.description === undefined || typeof value.description === "string");
   }
 
   return (
@@ -123,6 +126,7 @@ export default function OwnerCatalogForm({
           price: String(item.price),
           duration:
             item.kind === "Layanan" ? String(item.duration) : "",
+          description: item.kind === "Layanan" ? item.description ?? "" : "",
           unit: item.kind === "Produk" ? item.unit ?? "" : "",
         });
 
@@ -201,7 +205,7 @@ export default function OwnerCatalogForm({
         duration > 1440
       ) {
         nextErrors.duration =
-          "Durasi harus berupa bilangan bulat 1–1440 menit.";
+          "Durasi harus berupa bilangan bulat 1 sampai 1440 menit.";
       }
     }
 
@@ -223,7 +227,7 @@ export default function OwnerCatalogForm({
       kind: values.kind,
       price,
       ...(values.kind === "Layanan"
-        ? { duration }
+        ? { duration, description: values.description.trim() }
         : { unit: values.unit.trim() }),
     };
 
@@ -273,12 +277,7 @@ export default function OwnerCatalogForm({
         description="Isi informasi layanan atau produk sesuai jenis yang dipilih."
       />
 
-      <OwnerPrototypeNote>
-        Data disimpan langsung ke PostgreSQL. Harga dan durasi layanan
-        digunakan pada katalog serta booking pelanggan. Stok produk hanya
-        bertambah melalui menu Restock Produk dan tidak diubah melalui
-        formulir ini.
-      </OwnerPrototypeNote>
+
 
       {isEdit && values.kind === "Layanan" && !itemActive && (
         <div className="cashier-error-banner" role="status">
@@ -413,6 +412,24 @@ export default function OwnerCatalogForm({
             </div>
           )}
 
+          {values.kind === "Layanan" && (
+            <div className="cashier-field cashier-field--full">
+              <label htmlFor="owner-catalog-description">
+                Deskripsi Layanan
+              </label>
+              <textarea
+                id="owner-catalog-description"
+                maxLength={1000}
+                onChange={(event) => updateField("description", event.target.value)}
+                placeholder="Contoh: Haircut, Hairwash, Tonic, dan Massage."
+                rows={4}
+                value={values.description}
+              />
+              <span className="owner-optional-label">
+                Opsional. Maksimal 1.000 karakter.
+              </span>
+            </div>
+          )}
           {values.kind === "Produk" && (
             <div className="cashier-field">
               <label htmlFor="owner-catalog-unit">Satuan Produk</label>

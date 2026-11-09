@@ -5,9 +5,11 @@ import { useState, type ReactNode } from "react";
 export default function LogoutButton({
   children,
   onError,
+  redirectTo = "/login",
 }: {
   children: ReactNode;
   onError: (message: string) => void;
+  redirectTo?: string;
 }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -22,7 +24,7 @@ export default function LogoutButton({
         throw new Error("Sesi belum dapat diakhiri. Silakan coba kembali.");
       }
 
-      window.location.replace("/login");
+      window.location.replace(redirectTo);
     } catch (error) {
       onError(
         error instanceof Error

@@ -123,7 +123,7 @@ export default function CustomerBookingsPage() {
         )}
         {!loading && !error && bookings.length === 0 && (
           <div className="customer-empty-state">
-            <span className="empty-state-icon" aria-hidden="true">▣</span>
+            <span className="empty-state-icon" aria-hidden="true">&#128197;</span>
             <h3>Belum ada booking tersimpan</h3>
             <p>Booking Anda yang berhasil dikirim akan muncul di sini.</p>
             <Link className="customer-primary-button" href="/pelanggan/booking/buat">Buat Booking</Link>
@@ -145,7 +145,7 @@ export default function CustomerBookingsPage() {
                     <div><dt>Tanggal</dt><dd>{formatTanggal(booking.date)}</dd></div>
                     <div><dt>Waktu</dt><dd>{booking.time} WIB</dd></div>
                     <div><dt>Status Booking</dt><dd><span className={`status-pill ${statusClass(booking.status)}`}>{booking.status}</span></dd></div>
-                    <div><dt>Status Pembayaran</dt><dd>{isPaid ? "Sudah Dibayar (simulasi)" : "Belum Dibayar"}</dd></div>
+                    <div><dt>Status Pembayaran</dt><dd>{isPaid ? "Sudah Dibayar" : "Belum Dibayar"}</dd></div>
                   </dl>
                   <div className="customer-card-actions">
                     <Link className="customer-outline-button" href={`/pelanggan/booking/${encodeURIComponent(booking.id)}`}>Lihat Detail</Link>

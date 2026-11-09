@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatRupiah } from "../data";
 
-type Service = { id: string; name: string; price: number; duration: number };
+type Service = { id: string; name: string; price: number; duration: number; description: string };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -15,7 +15,7 @@ function isService(value: unknown): value is Service {
     typeof value.id === "string" &&
     typeof value.name === "string" &&
     typeof value.price === "number" &&
-    typeof value.duration === "number";
+    typeof value.duration === "number" && typeof value.description === "string";
 }
 
 export default function ServiceBrowser() {
@@ -54,12 +54,10 @@ export default function ServiceBrowser() {
   return (
     <>
       <label className="customer-search">
-        <span aria-hidden="true">⌕</span>
+        <span aria-hidden="true">&#x2315;</span>
         <input aria-label="Cari Layanan" onChange={(event) => setQuery(event.target.value)} placeholder="Cari Layanan..." type="search" value={query} />
       </label>
-      <p className="customer-info-banner">
-        Harga dan durasi layanan diambil dari katalog PostgreSQL. Pembayaran booking online masih berupa simulasi.
-      </p>
+
       {loading && <div className="customer-empty-state" aria-busy="true"><p>Memuat layanan...</p></div>}
       {!loading && error && (
         <div className="customer-empty-state" role="alert">
@@ -71,10 +69,11 @@ export default function ServiceBrowser() {
         <div className="service-card-grid">
           {filteredServices.map((service) => (
             <article className="service-card" key={service.id}>
-              <div className="service-card__icon" aria-hidden="true">✂</div>
+              <div className="service-card__icon" aria-hidden="true">&#x2702;</div>
               <h2>{service.name}</h2>
               <p className="service-card__price">{formatRupiah(service.price)}</p>
-              <p className="service-card__description">Durasi sekitar {service.duration} menit.</p>
+              <p className="service-card__description">{service.description.trim() || "Deskripsi layanan belum tersedia."}</p>
+<p className="service-card__duration">Durasi: {service.duration} menit</p>
               <Link className="customer-primary-button" href={`/pelanggan/booking/buat?layanan=${encodeURIComponent(service.id)}`}>Pilih Layanan</Link>
             </article>
           ))}
@@ -82,7 +81,7 @@ export default function ServiceBrowser() {
       ) : !loading && !error ? (
         <div className="customer-empty-state">
           <h2>{services.length ? "Layanan tidak ditemukan" : "Katalog layanan kosong"}</h2>
-          <p>{services.length ? "Coba gunakan kata kunci lain." : "Belum ada layanan aktif di katalog database."}</p>
+          <p>{services.length ? "Coba gunakan kata kunci lain." : "Belum ada layanan aktif saat ini."}</p>
         </div>
       ) : null}
     </>

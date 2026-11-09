@@ -94,7 +94,7 @@ export default function OwnerShell({ children }: { children: ReactNode }) {
         </Suspense>
         <div className="cashier-sidebar-account">
           <span>Akun Owner</span>
-          <LogoutButton onError={(message) => showToast("Logout Gagal", message, "error")}>
+          <LogoutButton redirectTo="/karyawan/login" onError={(message) => showToast("Logout Gagal", message, "error")}>
             Logout
           </LogoutButton>
         </div>

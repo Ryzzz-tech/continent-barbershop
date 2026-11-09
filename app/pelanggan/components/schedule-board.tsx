@@ -73,7 +73,7 @@ export default function ScheduleBoard() {
       {!date ? (
         <div className="customer-info-banner">
           <strong>Informasi Jadwal</strong>
-          <p>Pilih tanggal untuk menampilkan slot tersedia dari database.</p>
+          <p>Pilih tanggal untuk melihat slot jadwal yang tersedia.</p>
         </div>
       ) : loading ? (
         <div className="customer-info-banner" aria-busy="true"><p>Memuat jadwal...</p></div>

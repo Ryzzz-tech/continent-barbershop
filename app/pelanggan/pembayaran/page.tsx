@@ -7,9 +7,9 @@ import { useAppFeedback } from "../../components/app-feedback";
 import { formatRupiah, formatTanggal } from "../data";
 
 const paymentMethods = [
-  { id: "bank-transfer", label: "Transfer Bank", detail: "Virtual Account (simulasi)" },
-  { id: "qris", label: "QRIS", detail: "Pembayaran QR (simulasi)" },
-  { id: "e-wallet", label: "E-Wallet", detail: "Dompet digital (simulasi)" },
+  { id: "bank-transfer", label: "Transfer Bank", detail: "Virtual Account" },
+  { id: "qris", label: "QRIS", detail: "Pembayaran QR" },
+  { id: "e-wallet", label: "E-Wallet", detail: "Dompet digital" },
 ];
 
 type Booking = {
@@ -100,7 +100,7 @@ function PaymentPageContent() {
         throw new Error(
           isRecord(result) && typeof result.message === "string"
             ? result.message
-            : "Pembayaran simulasi tidak dapat diproses.",
+            : "Pembayaran tidak dapat diproses.",
         );
       }
       const transactionId =
@@ -115,14 +115,14 @@ function PaymentPageContent() {
       showToast(
         result.alreadyPaid === true ? "Pembayaran Sudah Tersimpan" : "Pembayaran Berhasil!",
         result.alreadyPaid === true
-          ? "Transaksi simulasi untuk booking ini sudah tersimpan sebelumnya."
-          : "Pembayaran berhasil disimulasikan dan transaksinya tersimpan. Tidak ada pembayaran sungguhan yang diproses.",
+          ? "Transaksi untuk booking ini sudah tersimpan sebelumnya."
+          : "Pembayaran berhasil dan transaksi telah tersimpan.",
         result.alreadyPaid === true ? "info" : "success",
       );
     } catch (paymentError) {
       showToast(
         "Pembayaran Gagal",
-        paymentError instanceof Error ? paymentError.message : "Pembayaran simulasi tidak dapat diproses.",
+        paymentError instanceof Error ? paymentError.message : "Pembayaran tidak dapat diproses.",
         "error",
       );
     } finally {
@@ -135,11 +135,11 @@ function PaymentPageContent() {
   return (
     <div className="customer-page">
       <Link className="customer-back-link" href={bookingId ? `/pelanggan/booking/${encodeURIComponent(bookingId)}` : "/pelanggan/booking"}>
-        <span aria-hidden="true">←</span> Kembali ke Booking
+        <span aria-hidden="true">&#x2190;</span> Kembali ke Booking
       </Link>
       <header className="customer-page-heading">
         <h1>PEMBAYARAN ONLINE</h1>
-        <p>Ringkasan booking dan simulasi pembayaran.</p>
+        <p>Ringkasan booking dan metode pembayaran.</p>
       </header>
 
       {loading && <div className="customer-empty-state" aria-busy="true"><p>Memuat booking...</p></div>}
@@ -171,20 +171,18 @@ function PaymentPageContent() {
                       value={item.id}
                     />
                     <span className="payment-method__mark" aria-hidden="true">
-                      {item.id === "qris" ? "▦" : item.id === "e-wallet" ? "▣" : "▤"}
+                      {item.id === "qris" ? "\u25A6" : item.id === "e-wallet" ? "\u{1F4F1}" : "\u{1F3E6}"}
                     </span>
                     <span><strong>{item.label}</strong><small>{item.detail}</small></span>
                   </label>
                 ))}
               </div>
-              <p className="customer-field-hint">
-                Pembayaran ini hanya simulasi prototipe. Tidak ada uang, verifikasi bank, kode QR, atau bukti transaksi sungguhan.
-              </p>
+
               <button className="customer-primary-button" disabled={isPaid || submitting} type="submit">
                 {isPaid
-                  ? "Pembayaran Berhasil Disimulasikan"
+                  ? "Pembayaran Berhasil"
                   : submitting
-                    ? "Memproses Simulasi..."
+                    ? "Memproses..."
                     : "Lanjutkan Pembayaran"}
               </button>
             </form>
@@ -203,7 +201,7 @@ function PaymentPageContent() {
               {isPaid ? "Sudah Dibayar" : "Belum Dibayar"}
             </span>
             {booking.transactionId && (
-              <p className="customer-field-hint">Transaksi simulasi: {booking.transactionId}</p>
+              <p className="customer-field-hint">ID Transaksi: {booking.transactionId}</p>
             )}
           </aside>
         </div>

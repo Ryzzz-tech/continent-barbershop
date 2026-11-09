@@ -15,6 +15,7 @@ export async function GET() {
           nama_layanan: true,
           harga: true,
           durasi: true,
+          deskripsi: true,
         },
       }),
       prisma.kapster.findMany({
@@ -37,6 +38,7 @@ export async function GET() {
         name: service.nama_layanan,
         price: Number(service.harga),
         duration: service.durasi,
+        description: service.deskripsi ?? "",
       })),
       barbers: barbers.map((barber) => ({
         id: barber.id_kapster,

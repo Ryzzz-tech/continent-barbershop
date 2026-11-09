@@ -241,7 +241,7 @@ export default function BookingForm({
   return (
     <div className="customer-page">
       <Link className="customer-back-link" href="/pelanggan/booking">
-        <span aria-hidden="true">←</span> Kembali ke Booking Saya
+        <span aria-hidden="true">&#8592;</span> Kembali ke Booking Saya
       </Link>
       <header className="customer-page-heading">
         <h1>Form Booking</h1>
@@ -284,7 +284,7 @@ export default function BookingForm({
             </select>
             {errors.serviceId && <p className="customer-field-error" role="alert">{errors.serviceId}</p>}
             <p className="booking-service-price">
-              Harga layanan: <strong>{selectedService ? formatRupiah(selectedService.price) : "—"}</strong>
+              Harga layanan: <strong>{selectedService ? formatRupiah(selectedService.price) : "\u2014"}</strong>
             </p>
           </section>
 
@@ -382,15 +382,13 @@ export default function BookingForm({
             <div><dt>Tanggal</dt><dd>{date ? formatTanggal(date) : "Belum dipilih"}</dd></div>
             <div><dt>Waktu</dt><dd>{time || "Belum dipilih"}</dd></div>
             <div className="booking-summary-total">
-              <dt>Total biaya</dt><dd>{selectedService ? formatRupiah(selectedService.price) : "—"}</dd>
+              <dt>Total biaya</dt><dd>{selectedService ? formatRupiah(selectedService.price) : "\u2014"}</dd>
             </div>
           </dl>
           <button className="customer-primary-button" disabled={loadingOptions || submitting} type="submit">
             {submitting ? "Menyimpan Booking..." : bookingId ? "Simpan Perubahan" : "Lanjut ke Pembayaran"}
           </button>
-          <p className="customer-prototype-note">
-            Booking disimpan di PostgreSQL. Pembayaran berikutnya merupakan simulasi.
-          </p>
+
         </aside>
       </form>
     </div>

@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { formatRupiah, formatTanggal } from "../../utils";
+import { formatPaymentMethod } from "../../../pelanggan/data";
 import { CashierPageHeading } from "../../cashier-ui";
 
 type TransactionItem = {
@@ -117,7 +118,7 @@ export default function CashierTransactionDetail({
     <div className="cashier-page">
       <CashierPageHeading
         title="Detail Transaksi"
-        description="Rincian transaksi yang tersimpan di database."
+        description="Periksa rincian transaksi."
       />
 
       {loading && (
@@ -187,7 +188,7 @@ export default function CashierTransactionDetail({
               )}
               <div>
                 <dt>Metode Pembayaran</dt>
-                <dd>{transaction.paymentMethod}</dd>
+                <dd>{formatPaymentMethod(transaction.paymentMethod)}</dd>
               </div>
               <div>
                 <dt>Status Pembayaran</dt>
@@ -200,7 +201,7 @@ export default function CashierTransactionDetail({
               {transaction.items.map((item) => (
                 <div key={item.id}>
                   <dt>
-                    {item.name} ({item.type}) × {item.quantity}
+                    {item.name} ({item.type}) &times; {item.quantity}
                     <small>
                       {formatRupiah(item.unitPrice)} per item
                     </small>
@@ -215,7 +216,7 @@ export default function CashierTransactionDetail({
             </dl>
 
             <p className="cashier-receipt-status">
-              Transaksi berhasil dicatat dan tersimpan di PostgreSQL.
+              Transaksi berhasil dicatat.
             </p>
           </section>
 

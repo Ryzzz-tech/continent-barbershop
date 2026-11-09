@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { formatRupiah, formatTanggal } from "../../data";
+import { formatPaymentMethod, formatRupiah, formatTanggal } from "../../data";
 
 type Booking = {
   id: string;
@@ -72,7 +72,7 @@ function BookingDetailContent() {
   return (
     <div className="customer-page">
       <Link className="customer-back-link" href="/pelanggan/booking">
-        <span aria-hidden="true">←</span> Kembali ke Booking Saya
+        <span aria-hidden="true">&#x2190;</span> Kembali ke Booking Saya
       </Link>
       <header className="customer-page-heading"><h1>DETAIL BOOKING</h1></header>
       {loading && <div className="customer-empty-state" aria-busy="true"><p>Memuat detail booking...</p></div>}
@@ -95,15 +95,15 @@ function BookingDetailContent() {
             <div><dt>Tanggal</dt><dd>{formatTanggal(booking.date)}</dd></div>
             <div><dt>Waktu</dt><dd>{booking.time} WIB</dd></div>
             <div><dt>Status Booking</dt><dd>{booking.status}</dd></div>
-            <div><dt>Status Pembayaran</dt><dd>{isPaid ? "Sudah Dibayar (simulasi)" : "Belum Dibayar"}</dd></div>
-            {booking.paymentMethod && <div><dt>Metode Pembayaran</dt><dd>{booking.paymentMethod}</dd></div>}
+            <div><dt>Status Pembayaran</dt><dd>{isPaid ? "Sudah Dibayar" : "Belum Dibayar"}</dd></div>
+            {booking.paymentMethod && <div><dt>Metode Pembayaran</dt><dd>{formatPaymentMethod(booking.paymentMethod)}</dd></div>}
             {booking.transactionId && <div><dt>ID Transaksi</dt><dd>{booking.transactionId}</dd></div>}
             <div><dt>Catatan</dt><dd>{booking.customerNote || "Tidak ada catatan tambahan."}</dd></div>
             {booking.statusNote && <div><dt>Catatan Kapster</dt><dd>{booking.statusNote}</dd></div>}
           </dl>
           {!isPaid && booking.status !== "Dibatalkan" && (
             <Link className="customer-primary-button" href={`/pelanggan/pembayaran?booking=${encodeURIComponent(booking.id)}`}>
-              Lanjutkan Pembayaran Simulasi
+              Lanjutkan Pembayaran
             </Link>
           )}
         </section>

@@ -96,7 +96,7 @@ export default function CashierShell({ children }: { children: ReactNode }) {
         </Suspense>
         <div className="cashier-sidebar-account">
           <span>Akun Kasir</span>
-          <LogoutButton onError={announce}>
+          <LogoutButton redirectTo="/karyawan/login" onError={announce}>
             Keluar
           </LogoutButton>
         </div>

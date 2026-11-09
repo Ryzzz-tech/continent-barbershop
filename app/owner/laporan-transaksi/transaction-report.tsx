@@ -1,12 +1,13 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, type FormEvent } from "react";
 import {
+  formatPaymentMethod,
   formatRupiah,
   formatTanggal,
   isValidDateValue,
 } from "../../pelanggan/data";
-import { OwnerPageHeading, OwnerPrototypeNote } from "../owner-ui";
+import { OwnerPageHeading } from "../owner-ui";
 
 type TransactionItem = {
   id: string;
@@ -191,10 +192,7 @@ export default function OwnerTransactionReport() {
         description="Pilih periode waktu untuk melihat laporan transaksi."
       />
 
-      <OwnerPrototypeNote>
-        Data laporan diambil langsung dari transaksi Kasir yang tersimpan di
-        PostgreSQL. Pendapatan hanya menghitung transaksi yang sudah dibayar.
-      </OwnerPrototypeNote>
+
 
       <form
         className="cashier-panel owner-report-filter"
@@ -248,8 +246,7 @@ export default function OwnerTransactionReport() {
               Periode:{" "}
               {appliedRange.from
                 ? formatTanggal(appliedRange.from)
-                : "Semua tanggal"}
-              {" — "}
+                : "Semua tanggal"}{" sampai "}
               {appliedRange.to
                 ? formatTanggal(appliedRange.to)
                 : "Semua tanggal"}
@@ -324,7 +321,7 @@ export default function OwnerTransactionReport() {
                               .join(", ")
                           : "—"}
                       </td>
-                      <td>{transaction.paymentMethod}</td>
+                      <td>{formatPaymentMethod(transaction.paymentMethod)}</td>
                       <td>{transaction.paymentStatus}</td>
                       <td>{formatRupiah(transaction.total)}</td>
                     </tr>

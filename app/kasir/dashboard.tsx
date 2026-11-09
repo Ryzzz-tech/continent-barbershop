@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -160,7 +160,7 @@ export default function CashierDashboard() {
         <div className="cashier-panel-heading">
           <div>
             <h2>Booking Terdekat</h2>
-            <p>Lima booking mendatang dari database.</p>
+            <p>Lima booking mendatang.</p>
           </div>
           <Link className="cashier-text-link" href="/kasir/booking">
             Lihat Booking
