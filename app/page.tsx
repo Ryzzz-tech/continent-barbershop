@@ -19,9 +19,9 @@ export default function Home() {
               Kami siap memberikan layanan potong rambut dengan kualitas terbaik
               dan harga terjangkau
             </p>
-            <a className="booking-button" href="#booking" aria-disabled="true">
+            <Link className="booking-button" href="/pelanggan/booking/buat">
               Booking Sekarang
-            </a>
+            </Link>
             <p className="registration">
               Belum punya akun?{" "}
               <Link href="/register">
