@@ -501,7 +501,7 @@ async function seedProduction() {
     }
 
     return { accountsCreated };
-  });
+  }, { timeout: 30000 });
 
   console.info(
     `Seed produksi selesai. Profil, layanan, dan produk diperiksa; ${result.accountsCreated} akun operasional dibuat.`,
