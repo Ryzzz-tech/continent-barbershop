@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAppFeedback } from "../../components/app-feedback";
 import { formatRupiah, isValidDateValue } from "../../pelanggan/data";
-import { CashierPageHeading, CashierPrototypeNote } from "../cashier-ui";
+import { CashierPageHeading } from "../cashier-ui";
 
 type Option = { id: string; name: string };
 type Service = Option & { price: number; duration: number };
@@ -125,7 +125,7 @@ export default function CashierBookingForm() {
       if (!response.ok || !isRecord(result) || !isRecord(result.booking) || typeof result.booking.id !== "string") {
         throw new Error(isRecord(result) && typeof result.message === "string" ? result.message : "Booking tidak dapat dicatat.");
       }
-      showToast("Booking Berhasil Dicatat", `Booking ${result.booking.id} tersimpan di PostgreSQL.`, "success");
+      showToast("Booking Berhasil Dicatat", `Booking ${result.booking.id} berhasil dicatat.`, "success");
       router.push(`/kasir/booking/detail?id=${encodeURIComponent(result.booking.id)}`);
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : "Booking tidak dapat dicatat.";
@@ -139,7 +139,7 @@ export default function CashierBookingForm() {
   return (
     <div className="cashier-page">
       <CashierPageHeading title="Catat Booking" description="Masukkan informasi pelanggan dan jadwal pelayanan." />
-      <CashierPrototypeNote>Booking dibuat dengan data pelanggan, layanan, dan jadwal yang diverifikasi server serta disimpan di PostgreSQL.</CashierPrototypeNote>
+
       {error && <div className="cashier-error-banner" role="alert">{error}<button className="cashier-text-link" onClick={() => { setLoading(true); setError(""); void loadOptions(); }} type="button">Coba lagi</button></div>}
       <form className="cashier-form-panel" onSubmit={submit} noValidate>
         <div className="cashier-form-grid">
@@ -160,7 +160,7 @@ export default function CashierBookingForm() {
               setLoadingSlots(Boolean(nextServiceId && barberId && date));
             }} value={serviceId}>
               <option value="">Pilih layanan</option>
-              {services.map((item) => <option key={item.id} value={item.id}>{item.name} — {formatRupiah(item.price)}</option>)}
+              {services.map((item) => <option key={item.id} value={item.id}>{item.name} - {formatRupiah(item.price)}</option>)}
             </select>
           </div>
           <div className="cashier-field">

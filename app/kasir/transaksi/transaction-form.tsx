@@ -8,7 +8,7 @@ import {
   formatRupiah,
   getTodayDateValue,
 } from "../utils";
-import { CashierPageHeading, CashierPrototypeNote } from "../cashier-ui";
+import { CashierPageHeading } from "../cashier-ui";
 
 type Option = {
   id: string;
@@ -265,7 +265,7 @@ export default function CashierTransactionForm() {
 
       showToast(
         "Transaksi Berhasil Disimpan",
-        `Transaksi ${transactionId} dan booking terkait sudah tersimpan di PostgreSQL.`,
+        `Transaksi ${transactionId} dan booking terkait berhasil disimpan.`,
         "success",
       );
 
@@ -292,10 +292,7 @@ export default function CashierTransactionForm() {
         description="Masukkan informasi pelanggan, layanan, jadwal, dan pembayaran."
       />
 
-      <CashierPrototypeNote>
-        Booking dan transaksi akan disimpan bersama ke PostgreSQL setelah
-        jadwal dan data pembayaran berhasil diverifikasi.
-      </CashierPrototypeNote>
+
 
       {error && (
         <div className="cashier-error-banner" role="alert">
@@ -348,7 +345,7 @@ export default function CashierTransactionForm() {
               <option value="">Pilih layanan</option>
               {services.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name} — {formatRupiah(item.price)}
+                  {item.name} - {formatRupiah(item.price)}
                 </option>
               ))}
             </select>

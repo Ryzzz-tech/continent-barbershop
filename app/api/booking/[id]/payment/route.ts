@@ -11,9 +11,9 @@ import {
 import { prisma } from "@/lib/prisma";
 
 const paymentMethods: Record<string, string> = {
-  "bank-transfer": "Transfer Bank (Simulasi)",
-  qris: "QRIS (Simulasi)",
-  "e-wallet": "E-Wallet (Simulasi)",
+  "bank-transfer": "Transfer Bank",
+  qris: "QRIS",
+  "e-wallet": "E-Wallet",
 };
 
 export async function POST(

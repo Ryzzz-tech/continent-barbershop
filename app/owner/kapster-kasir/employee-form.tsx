@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { OwnerPageHeading, OwnerPrototypeNote } from "../owner-ui";
+import { OwnerPageHeading } from "../owner-ui";
 
 type EmployeeRole = "Kapster" | "Kasir";
 
@@ -246,11 +246,7 @@ export default function OwnerEmployeeForm({
         }
       />
 
-      <OwnerPrototypeNote>
-        Data karyawan disimpan ke PostgreSQL. Email digunakan sebagai
-        identitas login, sedangkan password diproses menggunakan hash
-        sebelum disimpan. Password lama tidak ditampilkan.
-      </OwnerPrototypeNote>
+
 
       {loading ? (
         <div className="cashier-empty-state owner-empty-state">

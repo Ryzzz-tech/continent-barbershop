@@ -38,6 +38,13 @@ function validateInput(body: unknown, kind: CatalogKind) {
   }
 
   if (kind === "Layanan") {
+    if (body.description !== undefined && typeof body.description !== "string") {
+      throw new BookingApiError("Deskripsi layanan tidak valid.", 400);
+    }
+    const description = typeof body.description === "string" ? body.description.trim() : undefined;
+    if ((description?.length ?? 0) > 1000) {
+      throw new BookingApiError("Deskripsi maksimal 1000 karakter.", 400);
+    }
     if (
       typeof body.duration !== "number" ||
       !Number.isSafeInteger(body.duration) ||
@@ -45,7 +52,7 @@ function validateInput(body: unknown, kind: CatalogKind) {
       body.duration > 1440
     ) {
       throw new BookingApiError(
-        "Durasi layanan harus berupa bilangan bulat 1–1440 menit.",
+        "Durasi layanan harus berupa bilangan bulat 1 sampai 1440 menit.",
         400,
       );
     }
@@ -55,6 +62,7 @@ function validateInput(body: unknown, kind: CatalogKind) {
       kind,
       price: body.price,
       duration: body.duration,
+      description,
     };
   }
 
@@ -104,6 +112,7 @@ export async function GET(
           kind,
           price: Number(item.harga),
           duration: item.durasi,
+          description: item.deskripsi ?? "",
           isActive: item.is_active,
         },
       });
@@ -126,7 +135,7 @@ export async function GET(
         price: Number(item.harga),
         stock: item.stok,
         unit: item.satuan,
-        isActive: true,
+        isActive: item.is_active,
       },
     });
   } catch (error) {
@@ -187,6 +196,7 @@ export async function PATCH(
             nama_layanan: input.name,
             harga: input.price,
             durasi: input.duration,
+            deskripsi: input.description === undefined ? current.deskripsi : input.description || null,
             is_active: current.is_active,
           },
         });
@@ -197,6 +207,7 @@ export async function PATCH(
           kind: "Layanan" as const,
           price: Number(updated.harga),
           duration: updated.durasi,
+          description: updated.deskripsi ?? "",
           isActive: updated.is_active,
         };
       }
@@ -230,6 +241,7 @@ export async function PATCH(
           nama_produk: input.name,
           harga: input.price,
           satuan: input.unit,
+          is_active: current.is_active,
         },
       });
 
@@ -240,7 +252,7 @@ export async function PATCH(
         price: Number(updated.harga),
         stock: updated.stok,
         unit: updated.satuan,
-        isActive: true,
+        isActive: updated.is_active,
       };
     });
 
@@ -295,6 +307,7 @@ export async function DELETE(
             select: {
               detail_restok: true,
               detail_transaksi: true,
+              penyesuaian_stok: true,
             },
           },
         },
@@ -307,12 +320,19 @@ export async function DELETE(
       if (
         current.stok > 0 ||
         current._count.detail_restok > 0 ||
-        current._count.detail_transaksi > 0
+        current._count.detail_transaksi > 0 ||
+        current._count.penyesuaian_stok > 0
       ) {
-        throw new BookingApiError(
-          "Produk tidak dapat dihapus karena masih memiliki stok atau riwayat restock/transaksi.",
-          409,
-        );
+        const archived = await tx.produk.update({
+          where: { id_produk: id },
+          data: { is_active: false },
+        });
+
+        return {
+          kind,
+          id: archived.id_produk,
+          message: "Produk berhasil diarsipkan. Stok dan riwayat historis tetap dipertahankan.",
+        };
       }
 
       await tx.produk.delete({

@@ -64,7 +64,7 @@ export default function CashierBookingDetail({ bookingId }: { bookingId: string 
 
   return (
     <div className="cashier-page">
-      <CashierPageHeading title="Detail Booking" description="Booking telah tercatat di database." />
+      <CashierPageHeading title="Detail Booking" description="Periksa informasi dan status booking." />
       {loading && <div className="cashier-empty-state" aria-busy="true"><p>Memuat detail booking...</p></div>}
       {!loading && error && (
         <div className="cashier-empty-state" role="alert">

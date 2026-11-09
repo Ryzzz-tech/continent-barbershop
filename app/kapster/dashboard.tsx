@@ -8,7 +8,6 @@ import {
   getBookingStatusClass,
   getBookingStatusLabel,
   KapsterPageHeading,
-  KapsterPrototypeNote,
 } from "./kapster-ui";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -81,7 +80,7 @@ export default function KapsterDashboard() {
         title="Beranda"
         description="Selamat datang kembali! Pantau booking dan aktivitas pelayanan Anda hari ini."
       />
-      <KapsterPrototypeNote>Data booking ditampilkan dari database sesuai akun Kapster yang sedang masuk.</KapsterPrototypeNote>
+
 
       {error && (
         <div className="kapster-error-banner" role="alert">
@@ -91,19 +90,19 @@ export default function KapsterDashboard() {
       )}
       <section className="cashier-metric-grid kapster-metric-grid" aria-label="Ringkasan booking hari ini">
         <article className="cashier-metric-card kapster-metric-card">
-          <span className="cashier-metric-icon kapster-metric-icon" aria-hidden="true">▣</span>
-          <div><p>Booking Hari Ini</p><strong>{loading ? "—" : String(todayBookings.length).padStart(2, "0")}</strong></div>
+          <span className="cashier-metric-icon kapster-metric-icon" aria-hidden="true">&#128197;</span>
+          <div><p>Booking Hari Ini</p><strong>{loading ? "..." : String(todayBookings.length).padStart(2, "0")}</strong></div>
         </article>
         <article className="cashier-metric-card kapster-metric-card">
-          <span className="cashier-metric-icon kapster-metric-icon kapster-metric-icon--orange" aria-hidden="true">◷</span>
-          <div><p>Menunggu Dilayani</p><strong>{loading ? "—" : String(waitingCount).padStart(2, "0")}</strong></div>
+          <span className="cashier-metric-icon kapster-metric-icon kapster-metric-icon--orange" aria-hidden="true">&#9203;</span>
+          <div><p>Menunggu Dilayani</p><strong>{loading ? "..." : String(waitingCount).padStart(2, "0")}</strong></div>
         </article>
         <article className="cashier-metric-card kapster-metric-card">
-          <span className="cashier-metric-icon kapster-metric-icon kapster-metric-icon--green" aria-hidden="true">✓</span>
-          <div><p>Selesai Dilayani</p><strong>{loading ? "—" : String(completedCount).padStart(2, "0")}</strong></div>
+          <span className="cashier-metric-icon kapster-metric-icon kapster-metric-icon--green" aria-hidden="true">&#10004;</span>
+          <div><p>Selesai Dilayani</p><strong>{loading ? "..." : String(completedCount).padStart(2, "0")}</strong></div>
         </article>
         <article className="cashier-metric-card kapster-metric-card">
-          <span className="cashier-metric-icon kapster-metric-icon kapster-metric-icon--blue" aria-hidden="true">♙</span>
+          <span className="cashier-metric-icon kapster-metric-icon kapster-metric-icon--blue" aria-hidden="true">&#128100;</span>
           <div>
             <p>Pelanggan Berikutnya</p>
             <strong className="kapster-next-customer">{loading ? "Memuat..." : nextBooking?.customerName ?? "Belum ada"}</strong>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { formatRupiah, formatTanggal } from "../../data";
+import { formatPaymentMethod, formatRupiah, formatTanggal } from "../../data";
 
 type Transaction = {
   id: string;
@@ -68,7 +68,7 @@ function TransactionDetailContent() {
 
   return (
     <div className="customer-page">
-      <Link className="customer-back-link" href="/pelanggan/riwayat-transaksi"><span aria-hidden="true">←</span> Kembali ke Riwayat Transaksi</Link>
+      <Link className="customer-back-link" href="/pelanggan/riwayat-transaksi"><span aria-hidden="true">&#8592;</span> Kembali ke Riwayat Transaksi</Link>
       <header className="customer-page-heading"><h1>DETAIL TRANSAKSI</h1></header>
       {loading && <div className="customer-empty-state" aria-busy="true"><p>Memuat detail transaksi...</p></div>}
       {!loading && error && (
@@ -83,18 +83,15 @@ function TransactionDetailContent() {
           <div className="booking-draft-card__header"><div><span className="kapster-booking-id">{transaction.id}</span><h2>{transaction.bookingId ? `Booking ${transaction.bookingId}` : "Transaksi"}</h2></div><strong>{formatRupiah(transaction.total)}</strong></div>
           <dl className="customer-detail-list">
             <div><dt>Tanggal</dt><dd>{formatTanggal(transaction.date)}</dd></div>
-            <div><dt>Metode Pembayaran</dt><dd>{transaction.paymentMethod}</dd></div>
+            <div><dt>Metode Pembayaran</dt><dd>{formatPaymentMethod(transaction.paymentMethod)}</dd></div>
             <div><dt>Status Pembayaran</dt><dd>{transaction.paymentStatus}</dd></div>
           </dl>
           <h3>Rincian</h3>
           {transaction.items.map((item) => (
             <dl className="customer-detail-list" key={item.id}>
-              <div><dt>{item.name} × {item.quantity}</dt><dd>{formatRupiah(item.total)}</dd></div>
+              <div><dt>{item.name} &times; {item.quantity}</dt><dd>{formatRupiah(item.total)}</dd></div>
             </dl>
           ))}
-          {transaction.paymentMethod.includes("Simulasi") && (
-            <p className="customer-field-hint">Transaksi ini merupakan simulasi prototipe, bukan bukti pembayaran atau penerimaan dana sungguhan.</p>
-          )}
         </section>
       )}
     </div>

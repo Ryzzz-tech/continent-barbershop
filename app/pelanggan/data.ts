@@ -15,6 +15,10 @@ export function formatRupiah(amount: number) {
   }).format(amount);
 }
 
+export function formatPaymentMethod(value: string) {
+  return value.replace(/\s*\(simulasi\)\s*$/i, "").trim();
+}
+
 export function isValidDateValue(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return false;

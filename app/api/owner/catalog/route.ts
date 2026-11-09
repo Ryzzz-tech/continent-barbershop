@@ -1,4 +1,4 @@
-﻿import { getAuthenticatedAccount } from "@/lib/auth";
+import { getAuthenticatedAccount } from "@/lib/auth";
 import {
   assertRole,
   BookingApiError,
@@ -60,6 +60,10 @@ function validateInput(body: unknown) {
   }
 
   if (kind === "Layanan") {
+
+  if (body.description !== undefined && typeof body.description !== "string") throw new BookingApiError("Deskripsi layanan tidak valid.", 400);
+  const description = typeof body.description === "string" ? body.description.trim() : "";
+  if (description.length > 1000) throw new BookingApiError("Deskripsi maksimal 1000 karakter.", 400);
     if (
       typeof body.duration !== "number" ||
       !Number.isSafeInteger(body.duration) ||
@@ -67,7 +71,7 @@ function validateInput(body: unknown) {
       body.duration > 1440
     ) {
       throw new BookingApiError(
-        "Durasi layanan harus berupa bilangan bulat 1–1440 menit.",
+        "Durasi layanan harus berupa bilangan bulat 1 sampai 1440 menit.",
         400,
       );
     }
@@ -77,6 +81,8 @@ function validateInput(body: unknown) {
       kind,
       price: body.price,
       duration: body.duration,
+
+      description,
     };
   }
 
@@ -121,6 +127,8 @@ export async function GET() {
           kind: "Layanan" as const,
           price: Number(item.harga),
           duration: item.durasi,
+
+          description: item.deskripsi ?? "",
           isActive: item.is_active,
         })),
         ...products.map((item) => ({
@@ -130,7 +138,7 @@ export async function GET() {
           price: Number(item.harga),
           stock: item.stok,
           unit: item.satuan,
-          isActive: true,
+          isActive: item.is_active,
         })),
       ].sort((a, b) => a.id.localeCompare(b.id)),
     });
@@ -181,6 +189,8 @@ export async function POST(request: Request) {
             nama_layanan: input.name,
             harga: input.price,
             durasi: input.duration,
+
+            deskripsi: input.description || null,
             is_active: true,
           },
         });
@@ -191,6 +201,8 @@ export async function POST(request: Request) {
           kind: "Layanan" as const,
           price: Number(created.harga),
           duration: created.durasi,
+
+          description: created.deskripsi ?? "",
           isActive: created.is_active,
         };
       }
@@ -220,6 +232,7 @@ export async function POST(request: Request) {
           harga: input.price,
           stok: 0,
           satuan: input.unit,
+          is_active: true,
         },
       });
 
@@ -230,14 +243,14 @@ export async function POST(request: Request) {
         price: Number(created.harga),
         stock: created.stok,
         unit: created.satuan,
-        isActive: true,
+        isActive: created.is_active,
       };
     });
 
     return Response.json(
       {
         success: true,
-        message: `${item.kind} berhasil ditambahkan ke PostgreSQL.`,
+        message: `${item.kind} berhasil ditambahkan.`,
         item,
       },
       { status: 201 },

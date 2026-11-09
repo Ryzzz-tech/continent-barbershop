@@ -192,7 +192,7 @@ export async function PATCH(
         const current = await tx.kapster.findUnique({
           where: { id_kapster: id },
           include: {
-            akun: { select: { id_akun: true } },
+            akun: { select: { id_akun: true, is_active: true } },
           },
         });
 
@@ -213,7 +213,7 @@ export async function PATCH(
             nama: input.name,
             no_hp: input.phone,
             email: input.email,
-            status: "Aktif",
+            status: current.akun ? current.status : "Aktif",
           },
         });
 
@@ -222,7 +222,7 @@ export async function PATCH(
             where: { id_akun: current.akun.id_akun },
             data: {
               email: input.email,
-              is_active: true,
+              is_active: current.akun.is_active,
               session_version: { increment: 1 },
               ...(passwordHash ? { password_hash: passwordHash } : {}),
             },
@@ -247,14 +247,14 @@ export async function PATCH(
           username: updated.email,
           hasPassword: true,
           isActive: true,
-          profileStatus: "Aktif",
+          profilestatus: current.akun ? current.status : "Aktif",
         };
       }
 
       const current = await tx.kasir.findUnique({
         where: { id_kasir: id },
         include: {
-          akun: { select: { id_akun: true } },
+          akun: { select: { id_akun: true, is_active: true } },
         },
       });
 
@@ -283,7 +283,7 @@ export async function PATCH(
           where: { id_akun: current.akun.id_akun },
           data: {
             email: input.email,
-            is_active: true,
+            is_active: current.akun.is_active,
             session_version: { increment: 1 },
             ...(passwordHash ? { password_hash: passwordHash } : {}),
           },
@@ -307,8 +307,8 @@ export async function PATCH(
         phone: updated.no_hp,
         username: updated.email,
         hasPassword: true,
-        isActive: true,
-        profileStatus: "Aktif",
+        isActive: current.akun ? current.akun.is_active : true,
+        profileStatus: current.akun ? (current.akun.is_active ? "Aktif" : "Nonaktif") : "Aktif",
       };
     });
 

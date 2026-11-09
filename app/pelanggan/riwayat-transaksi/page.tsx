@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatRupiah, formatTanggal } from "../data";
+import { formatPaymentMethod, formatRupiah, formatTanggal } from "../data";
 
 type Transaction = {
   id: string;
@@ -67,7 +67,7 @@ export default function TransactionHistoryPage() {
     <div className="customer-page">
       <header className="customer-page-heading"><h1>RIWAYAT TRANSAKSI</h1><p>Lihat transaksi pembayaran yang pernah Anda lakukan.</p></header>
       <div className="customer-history-toolbar">
-        <label className="customer-search"><span aria-hidden="true">⌕</span><input aria-label="Cari transaksi" onChange={(event) => setQuery(event.target.value)} placeholder="Cari transaksi..." type="search" value={query} /></label>
+        <label className="customer-search"><span aria-hidden="true">&#x2315;</span><input aria-label="Cari transaksi" onChange={(event) => setQuery(event.target.value)} placeholder="Cari transaksi..." type="search" value={query} /></label>
         <button className="customer-outline-button" onClick={() => setQuery("")} type="button">Reset Pencarian</button>
       </div>
       {loading && <div className="customer-empty-state" aria-busy="true"><p>Memuat transaksi...</p></div>}
@@ -79,7 +79,7 @@ export default function TransactionHistoryPage() {
       )}
       {!loading && !error && filtered.length === 0 && (
         <div className="customer-empty-state">
-          <span className="empty-state-icon" aria-hidden="true">▤</span>
+          <span className="empty-state-icon" aria-hidden="true">&#x25A4;</span>
           <h2>{transactions.length && query ? "Transaksi tidak ditemukan" : "Belum ada transaksi"}</h2>
           <p>{transactions.length && query ? "Tidak ada transaksi yang cocok dengan pencarian." : "Transaksi pembayaran yang tersimpan akan muncul di sini."}</p>
           <Link className="customer-text-link" href="/pelanggan/layanan">Lihat layanan</Link>
@@ -95,7 +95,7 @@ export default function TransactionHistoryPage() {
               </div>
               <dl className="customer-detail-list">
                 <div><dt>Tanggal</dt><dd>{formatTanggal(transaction.date)}</dd></div>
-                <div><dt>Metode</dt><dd>{transaction.paymentMethod}</dd></div>
+                <div><dt>Metode</dt><dd>{formatPaymentMethod(transaction.paymentMethod)}</dd></div>
                 <div><dt>Status Pembayaran</dt><dd>{transaction.paymentStatus}</dd></div>
               </dl>
               <Link className="customer-outline-button" href={`/pelanggan/riwayat-transaksi/${encodeURIComponent(transaction.id)}`}>Lihat Detail</Link>

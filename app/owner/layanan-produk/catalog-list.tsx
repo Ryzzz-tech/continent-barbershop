@@ -1,11 +1,11 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import ConfirmDialog from "../../components/confirm-dialog";
 import { useAppFeedback } from "../../components/app-feedback";
 import { formatRupiah } from "../../pelanggan/data";
-import { OwnerPageHeading, OwnerPrototypeNote } from "../owner-ui";
+import { OwnerPageHeading } from "../owner-ui";
 
 type CatalogKind = "Layanan" | "Produk";
 
@@ -62,6 +62,7 @@ export default function OwnerCatalogList() {
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"Semua" | "Aktif" | "Nonaktif">("Semua");
   const [itemToDelete, setItemToDelete] = useState<{
     id: string;
     name: string;
@@ -106,6 +107,11 @@ export default function OwnerCatalogList() {
   useEffect(() => {
     void Promise.resolve().then(loadCatalog);
   }, [loadCatalog]);
+
+  const visibleCatalog = catalog.filter((item) => {
+    if (statusFilter === "Semua") return true;
+    return (item.isActive ? "Aktif" : "Nonaktif") === statusFilter;
+  });
 
   async function removeItem(): Promise<boolean> {
     if (!itemToDelete) return false;
@@ -164,11 +170,7 @@ export default function OwnerCatalogList() {
         </Link>
       </OwnerPageHeading>
 
-      <OwnerPrototypeNote>
-        Data katalog diambil langsung dari PostgreSQL. Layanan aktif
-        digunakan pada halaman Pelanggan dan formulir booking. Penambahan
-        stok produk dilakukan melalui menu Restock Produk.
-      </OwnerPrototypeNote>
+
 
       {error && (
         <div className="cashier-error-banner" role="alert">
@@ -184,6 +186,24 @@ export default function OwnerCatalogList() {
       )}
 
       <section className="cashier-panel owner-table-panel">
+        <div className="cashier-panel-heading">
+          <div>
+            <h2>Daftar Katalog</h2>
+          </div>
+          <div className="cashier-filter-group">
+            <label htmlFor="catalog-status-filter">Status</label>
+            <select
+              id="catalog-status-filter"
+              onChange={(event) => setStatusFilter(event.target.value as "Semua" | "Aktif" | "Nonaktif")}
+              value={statusFilter}
+            >
+              <option value="Semua">Semua</option>
+              <option value="Aktif">Aktif</option>
+              <option value="Nonaktif">Nonaktif</option>
+            </select>
+          </div>
+        </div>
+
         <div className="cashier-table-scroll owner-table-scroll">
           <table className="cashier-table owner-table">
             <thead>
@@ -205,7 +225,7 @@ export default function OwnerCatalogList() {
                   <td colSpan={8}>Memuat data katalog...</td>
                 </tr>
               ) : (
-                catalog.map((item, index) => (
+                visibleCatalog.map((item, index) => (
                   <tr key={item.id}>
                     <td>{String(index + 1).padStart(2, "0")}</td>
                     <td>{item.id}</td>
@@ -217,13 +237,7 @@ export default function OwnerCatalogList() {
                         ? `${item.duration} menit`
                         : `${item.stock} ${item.unit}`}
                     </td>
-                    <td>
-                      {item.kind === "Layanan"
-                        ? item.isActive
-                          ? "Aktif"
-                          : "Nonaktif"
-                        : "—"}
-                    </td>
+                    <td>{item.isActive ? "Aktif" : "Nonaktif"}</td>
                     <td>
                       <div className="owner-row-actions">
                         <Link
@@ -262,7 +276,7 @@ export default function OwnerCatalogList() {
                             }
                             type="button"
                           >
-                            Hapus
+                            {item.isActive ? "Arsipkan" : "Arsip"}
                           </button>
                         )}
                       </div>
@@ -274,7 +288,7 @@ export default function OwnerCatalogList() {
           </table>
         </div>
 
-        {!loading && catalog.length === 0 && !error && (
+        {!loading && visibleCatalog.length === 0 && !error && (
           <div className="cashier-empty-state owner-empty-state">
             <p>Belum ada layanan atau produk dalam katalog.</p>
             <Link
@@ -297,17 +311,17 @@ export default function OwnerCatalogList() {
           description={
             itemToDelete.kind === "Layanan"
               ? `Apakah Anda yakin ingin menonaktifkan layanan "${itemToDelete.name}"?`
-              : `Apakah Anda yakin ingin menghapus produk "${itemToDelete.name}"?`
+              : `Apakah Anda yakin ingin mengarsipkan produk "${itemToDelete.name}"?`
           }
           detail={
             itemToDelete.kind === "Layanan"
               ? "Layanan tidak akan muncul pada katalog pelanggan dan pilihan booking baru. Riwayat booking serta transaksi tetap dipertahankan."
-              : "Produk hanya dapat dihapus jika stok nol dan belum memiliki riwayat restock atau transaksi."
+              : "Produk yang masih memiliki stok atau riwayat pembelian/restok akan dinonaktifkan dan disimpan sebagai data historis. Produk yang benar-benar aman dihapus setelah stok nol."
           }
           confirmLabel={
             itemToDelete.kind === "Layanan"
               ? "Ya, Nonaktifkan"
-              : "Ya, Hapus Produk"
+              : "Ya, Arsipkan Produk"
           }
           onClose={() => setItemToDelete(null)}
           onConfirm={removeItem}

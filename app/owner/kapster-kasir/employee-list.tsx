@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import ConfirmDialog from "../../components/confirm-dialog";
 import { useAppFeedback } from "../../components/app-feedback";
-import { OwnerPageHeading, OwnerPrototypeNote } from "../owner-ui";
+import { OwnerPageHeading } from "../owner-ui";
 
 type Employee = {
   id: string;
@@ -142,10 +142,7 @@ export default function OwnerEmployeeList() {
         </Link>
       </OwnerPageHeading>
 
-      <OwnerPrototypeNote>
-        Data karyawan dan status akun diambil langsung dari PostgreSQL.
-        Password disimpan dalam bentuk hash dan tidak ditampilkan.
-      </OwnerPrototypeNote>
+
 
       {error && (
         <div className="cashier-error-banner" role="alert">

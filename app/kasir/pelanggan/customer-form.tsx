@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAppFeedback } from "../../components/app-feedback";
-import { CashierPageHeading, CashierPrototypeNote } from "../cashier-ui";
+import { CashierPageHeading } from "../cashier-ui";
 
 type CustomerValues = {
   name: string;
@@ -249,7 +249,7 @@ export default function CashierCustomerForm({
 
       showToast(
         customerId ? "Data Pelanggan Diperbarui" : "Pelanggan Berhasil Ditambahkan",
-        `${savedCustomer.name} berhasil disimpan ke PostgreSQL.`,
+        `${savedCustomer.name} berhasil disimpan.`,
         "success",
       );
 
@@ -273,7 +273,7 @@ export default function CashierCustomerForm({
       <div className="cashier-page">
         <CashierPageHeading
           title="Ubah Data Pelanggan"
-          description="Mengambil data pelanggan dari database."
+          description="Perbarui informasi pelanggan."
         />
         <div className="cashier-empty-state" aria-busy="true">
           <p>Memuat data pelanggan...</p>
@@ -313,15 +313,12 @@ export default function CashierCustomerForm({
         title={isEdit ? "Ubah Data Pelanggan" : "Tambah Data Pelanggan"}
         description={
           isEdit
-            ? "Perbarui informasi pelanggan yang tersimpan di database."
-            : "Lengkapi informasi pelanggan untuk disimpan ke database."
+            ? "Perbarui informasi pelanggan."
+            : "Lengkapi informasi pelanggan baru."
         }
       />
 
-      <CashierPrototypeNote>
-        Data pelanggan akan disimpan langsung ke PostgreSQL. Nomor HP dan
-        email harus unik.
-      </CashierPrototypeNote>
+
 
       <form
         className="cashier-form-panel cashier-customer-form"

@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { formatRupiah } from "../../pelanggan/data";
 import { useAppFeedback } from "../../components/app-feedback";
-import { OwnerPageHeading, OwnerPrototypeNote } from "../owner-ui";
+import { OwnerPageHeading } from "../owner-ui";
 
 type Product = {
   id: string;
@@ -43,8 +43,13 @@ export default function OwnerRestockPage() {
   const [purchasePrice, setPurchasePrice] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [adjustmentType, setAdjustmentType] = useState<"Penambahan" | "Pengurangan">("Penambahan");
+  const [adjustmentQuantity, setAdjustmentQuantity] = useState("");
+  const [adjustmentReason, setAdjustmentReason] = useState("");
+  const [adjustmentSaving, setAdjustmentSaving] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
+  const [adjustmentError, setAdjustmentError] = useState("");
 
   const selectedProduct = products.find(
     (item) => item.id === selectedProductId,
@@ -59,6 +64,15 @@ export default function OwnerRestockPage() {
     validQuantity && validPurchasePrice
       ? amount * unitPurchasePrice
       : 0;
+  const adjustmentAmount = Number(adjustmentQuantity);
+  const validAdjustmentQuantity =
+    Number.isSafeInteger(adjustmentAmount) && adjustmentAmount > 0;
+  const finalAdjustmentStock =
+    selectedProduct && validAdjustmentQuantity
+      ? adjustmentType === "Penambahan"
+        ? selectedProduct.stock + adjustmentAmount
+        : selectedProduct.stock - adjustmentAmount
+      : null;
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -102,7 +116,11 @@ export default function OwnerRestockPage() {
     setSelectedProductId(id);
     setQuantity("");
     setPurchasePrice("");
+    setAdjustmentQuantity("");
+    setAdjustmentReason("");
+    setAdjustmentType("Penambahan");
     setError("");
+    setAdjustmentError("");
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -197,6 +215,98 @@ export default function OwnerRestockPage() {
     }
   }
 
+  async function submitAdjustment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAdjustmentError("");
+
+    if (!selectedProduct) {
+      setAdjustmentError("Pilih produk yang akan disesuaikan stoknya.");
+      return;
+    }
+
+    if (!validAdjustmentQuantity) {
+      setAdjustmentError("Jumlah penyesuaian harus berupa bilangan bulat positif.");
+      return;
+    }
+
+    if (adjustmentType === "Pengurangan" && adjustmentAmount > selectedProduct.stock) {
+      setAdjustmentError("Pengurangan stok tidak boleh melebihi stok yang tersedia.");
+      return;
+    }
+
+    if (!adjustmentReason.trim()) {
+      setAdjustmentError("Masukkan alasan penyesuaian stok.");
+      return;
+    }
+
+    if (finalAdjustmentStock !== null && finalAdjustmentStock < 0) {
+      setAdjustmentError("Stok akhir tidak boleh bernilai negatif.");
+      return;
+    }
+
+    setAdjustmentSaving(true);
+
+    try {
+      const response = await fetch("/api/owner/stock-adjustments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId: selectedProduct.id,
+          type: adjustmentType,
+          quantity: adjustmentAmount,
+          reason: adjustmentReason.trim(),
+        }),
+      });
+
+      const result: unknown = await response.json();
+
+      if (
+        !response.ok ||
+        !isRecord(result) ||
+        result.success !== true ||
+        !isRecord(result.adjustment) ||
+        typeof result.adjustment.id !== "string" ||
+        typeof result.adjustment.afterStock !== "number"
+      ) {
+        throw new Error(
+          getErrorMessage(result, "Penyesuaian stok tidak dapat disimpan."),
+        );
+      }
+
+      const updatedStock = result.adjustment.afterStock;
+      setProducts((current) =>
+        current.map((product) =>
+          product.id === selectedProduct.id
+            ? { ...product, stock: updatedStock }
+            : product,
+        ),
+      );
+
+      showToast(
+        "Penyesuaian Stok Berhasil",
+        `Penyesuaian ${adjustmentType.toLowerCase()} stok ${selectedProduct.name} tersimpan. Stok akhir: ${updatedStock} ${selectedProduct.unit}.`,
+        "success",
+      );
+
+      setAdjustmentQuantity("");
+      setAdjustmentReason("");
+      setAdjustmentType("Penambahan");
+      setAdjustmentError("");
+    } catch (saveError) {
+      const message =
+        saveError instanceof Error
+          ? saveError.message
+          : "Penyesuaian stok tidak dapat disimpan.";
+
+      setAdjustmentError(message);
+      showToast("Penyesuaian Stok Gagal", message, "error");
+    } finally {
+      setAdjustmentSaving(false);
+    }
+  }
+
   return (
     <div className="cashier-page owner-page">
       <OwnerPageHeading
@@ -204,10 +314,7 @@ export default function OwnerRestockPage() {
         description="Pilih produk, lalu tambahkan jumlah stok dan harga belinya."
       />
 
-      <OwnerPrototypeNote>
-        Data produk, perubahan stok, dan riwayat restock disimpan langsung
-        ke PostgreSQL. Restock tidak membuat transaksi penjualan.
-      </OwnerPrototypeNote>
+
 
       {loadError && (
         <div className="cashier-error-banner" role="alert">
@@ -226,7 +333,7 @@ export default function OwnerRestockPage() {
         <div className="cashier-panel-heading">
           <div>
             <h2>Daftar Produk</h2>
-            <p>Produk dan stok bersumber langsung dari PostgreSQL.</p>
+
           </div>
         </div>
 
@@ -274,85 +381,175 @@ export default function OwnerRestockPage() {
       </section>
 
       {selectedProduct && (
-        <form
-          className="cashier-form-panel owner-restock-form"
-          onSubmit={submit}
-          noValidate
-        >
-          <div className="owner-form-heading">
-            <h2>Tambah Stok Produk</h2>
-            <p>
-              Produk terpilih: <strong>{selectedProduct.name}</strong>
+        <>
+          <form
+            className="cashier-form-panel owner-restock-form"
+            onSubmit={submit}
+            noValidate
+          >
+            <div className="owner-form-heading">
+              <h2>Tambah Stok Produk</h2>
+              <p>
+                Produk terpilih: <strong>{selectedProduct.name}</strong>
+              </p>
+            </div>
+
+            <div className="cashier-field">
+              <label htmlFor="owner-restock-quantity">
+                Jumlah Stok Ditambah
+              </label>
+              <input
+                aria-invalid={Boolean(error && !validQuantity)}
+                id="owner-restock-quantity"
+                min="1"
+                onChange={(event) => {
+                  setQuantity(event.target.value);
+                  setError("");
+                }}
+                placeholder="Contoh: 10"
+                step="1"
+                type="number"
+                value={quantity}
+              />
+            </div>
+
+            <div className="cashier-field">
+              <label htmlFor="owner-restock-purchase-price">
+                Harga Beli Satuan (Rp)
+              </label>
+              <input
+                aria-invalid={Boolean(error && !validPurchasePrice)}
+                id="owner-restock-purchase-price"
+                min="1"
+                onChange={(event) => {
+                  setPurchasePrice(event.target.value);
+                  setError("");
+                }}
+                placeholder="Contoh: 15000"
+                step="1"
+                type="number"
+                value={purchasePrice}
+              />
+            </div>
+
+            <p className="owner-stock-preview">
+              Stok saat ini: {selectedProduct.stock} {selectedProduct.unit}
+              {" · "}
+              Harga jual katalog: {formatRupiah(selectedProduct.sellingPrice)}
             </p>
-          </div>
 
-          <div className="cashier-field">
-            <label htmlFor="owner-restock-quantity">
-              Jumlah Stok Ditambah
-            </label>
-            <input
-              aria-invalid={Boolean(error && !validQuantity)}
-              id="owner-restock-quantity"
-              min="1"
-              onChange={(event) => {
-                setQuantity(event.target.value);
-                setError("");
-              }}
-              placeholder="Contoh: 10"
-              step="1"
-              type="number"
-              value={quantity}
-            />
-          </div>
-
-          <div className="cashier-field">
-            <label htmlFor="owner-restock-purchase-price">
-              Harga Beli Satuan (Rp)
-            </label>
-            <input
-              aria-invalid={Boolean(error && !validPurchasePrice)}
-              id="owner-restock-purchase-price"
-              min="1"
-              onChange={(event) => {
-                setPurchasePrice(event.target.value);
-                setError("");
-              }}
-              placeholder="Contoh: 15000"
-              step="1"
-              type="number"
-              value={purchasePrice}
-            />
-          </div>
-
-          <p className="owner-stock-preview">
-            Stok saat ini: {selectedProduct.stock} {selectedProduct.unit}
-            {" · "}
-            Harga jual katalog: {formatRupiah(selectedProduct.sellingPrice)}
-          </p>
-
-          <p className="owner-stock-preview">
-            Estimasi subtotal pembelian:{" "}
-            <strong>
-              {formatRupiah(subtotal)}
-            </strong>
-          </p>
-
-          {error && (
-            <p className="cashier-error-banner" role="alert">
-              {error}
+            <p className="owner-stock-preview">
+              Estimasi subtotal pembelian:{" "}
+              <strong>
+                {formatRupiah(subtotal)}
+              </strong>
             </p>
-          )}
 
-          <div className="cashier-form-actions">
-            <button
-              className="cashier-button cashier-button--primary"
-              disabled={saving || !validQuantity || !validPurchasePrice}
-              type="submit"
-            >
-              {saving ? "Menyimpan..." : "Simpan Stok"}
-            </button>
-          </div>
-        </form>
+            {error && (
+              <p className="cashier-error-banner" role="alert">
+                {error}
+              </p>
+            )}
+
+            <div className="cashier-form-actions">
+              <button
+                className="cashier-button cashier-button--primary"
+                disabled={saving || !validQuantity || !validPurchasePrice}
+                type="submit"
+              >
+                {saving ? "Menyimpan..." : "Simpan Stok"}
+              </button>
+            </div>
+          </form>
+
+          <form
+            className="cashier-form-panel owner-restock-form"
+            onSubmit={submitAdjustment}
+            noValidate
+          >
+            <div className="owner-form-heading">
+              <h2>Penyesuaian Stok</h2>
+              <p>
+                Produk terpilih: <strong>{selectedProduct.name}</strong>
+              </p>
+            </div>
+
+            <div className="cashier-field">
+              <label htmlFor="owner-stock-adjustment-type">Jenis Penyesuaian</label>
+              <select
+                id="owner-stock-adjustment-type"
+                onChange={(event) => {
+                  setAdjustmentType(event.target.value as "Penambahan" | "Pengurangan");
+                  setAdjustmentError("");
+                }}
+                value={adjustmentType}
+              >
+                <option value="Penambahan">Penambahan</option>
+                <option value="Pengurangan">Pengurangan</option>
+              </select>
+            </div>
+
+            <div className="cashier-field">
+              <label htmlFor="owner-stock-adjustment-quantity">
+                Jumlah Penyesuaian
+              </label>
+              <input
+                aria-invalid={Boolean(adjustmentError && !validAdjustmentQuantity)}
+                id="owner-stock-adjustment-quantity"
+                min="1"
+                onChange={(event) => {
+                  setAdjustmentQuantity(event.target.value);
+                  setAdjustmentError("");
+                }}
+                placeholder="Contoh: 5"
+                step="1"
+                type="number"
+                value={adjustmentQuantity}
+              />
+            </div>
+
+            <div className="cashier-field cashier-field--full">
+              <label htmlFor="owner-stock-adjustment-reason">Alasan Penyesuaian</label>
+              <textarea
+                id="owner-stock-adjustment-reason"
+                maxLength={100}
+                onChange={(event) => {
+                  setAdjustmentReason(event.target.value);
+                  setAdjustmentError("");
+                }}
+                placeholder="Contoh: Koreksi stok, barang rusak, atau penghapusan produk uji"
+                rows={3}
+                value={adjustmentReason}
+              />
+            </div>
+
+            <p className="owner-stock-preview">
+              Stok saat ini: {selectedProduct.stock} {selectedProduct.unit}
+            </p>
+
+            <p className="owner-stock-preview">
+              Stok akhir setelah penyesuaian: <strong>
+                {finalAdjustmentStock === null ? "—" : `${finalAdjustmentStock} ${selectedProduct.unit}`}
+              </strong>
+            </p>
+
+            {adjustmentError && (
+              <p className="cashier-error-banner" role="alert">
+                {adjustmentError}
+              </p>
+            )}
+
+            <div className="cashier-form-actions">
+              <button
+                className="cashier-button cashier-button--primary"
+                disabled={adjustmentSaving || !validAdjustmentQuantity || !adjustmentReason.trim()}
+                type="submit"
+              >
+                {adjustmentSaving ? "Menyimpan..." : "Konfirmasi Penyesuaian"}
+              </button>
+            </div>
+          </form>
+        </>
       )}
     </div>
   );

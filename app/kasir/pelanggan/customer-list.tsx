@@ -1,10 +1,10 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ConfirmDialog from "../../components/confirm-dialog";
 import { useAppFeedback } from "../../components/app-feedback";
-import { CashierPageHeading, CashierPrototypeNote } from "../cashier-ui";
+import { CashierPageHeading } from "../cashier-ui";
 
 type Customer = {
   id: string;
@@ -117,7 +117,7 @@ export default function CashierCustomerList() {
 
       showToast(
         "Data Berhasil Dihapus",
-        `Data pelanggan ${customerToDelete.name} berhasil dihapus dari database.`,
+        `Data pelanggan ${customerToDelete.name} berhasil dihapus.`,
         "success",
       );
 
@@ -139,7 +139,7 @@ export default function CashierCustomerList() {
     <div className="cashier-page">
       <CashierPageHeading
         title="Data Pelanggan"
-        description="Kelola data pelanggan yang tersimpan di PostgreSQL."
+        description="Lihat dan kelola data pelanggan."
       >
         <Link
           className="cashier-button cashier-button--primary"
@@ -149,9 +149,7 @@ export default function CashierCustomerList() {
         </Link>
       </CashierPageHeading>
 
-      <CashierPrototypeNote>
-        Daftar pelanggan diambil langsung dari database PostgreSQL.
-      </CashierPrototypeNote>
+
 
       {error && (
         <div className="cashier-error-banner" role="alert">
@@ -168,7 +166,7 @@ export default function CashierCustomerList() {
 
       <section className="cashier-panel cashier-table-panel">
         <label className="cashier-search">
-          <span aria-hidden="true">⌕</span>
+          <span aria-hidden="true">&#128269;</span>
           <input
             aria-label="Cari nama pelanggan"
             onChange={(event) => setQuery(event.target.value)}
@@ -231,8 +229,7 @@ export default function CashierCustomerList() {
         {!loading && filteredCustomers.length === 0 && !error && (
           <div className="cashier-table-empty">
             <span className="cashier-empty-icon" aria-hidden="true">
-              ♙
-            </span>
+              &#128100;</span>
             <h2>
               {query
                 ? "Pelanggan tidak ditemukan"

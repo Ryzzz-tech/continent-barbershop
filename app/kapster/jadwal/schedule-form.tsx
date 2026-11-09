@@ -128,7 +128,7 @@ export default function KapsterScheduleForm({ scheduleId }: { scheduleId?: strin
       }
       showToast(
         scheduleId ? "Jadwal Diperbarui" : "Jadwal Ditambahkan",
-        scheduleId ? "Perubahan jadwal tersimpan di database." : "Jadwal baru tersimpan di database.",
+        scheduleId ? "Perubahan jadwal berhasil disimpan." : "Jadwal baru berhasil ditambahkan.",
         "success",
       );
       router.push("/kapster/jadwal");

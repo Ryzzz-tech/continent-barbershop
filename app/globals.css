@@ -2077,7 +2077,18 @@ a {
 }
 
 .customer-summary-card--next strong {
+  display: block;
   font-size: 15px;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.customer-summary-card--next small {
+  color: var(--customer-muted);
+  display: block;
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 4px;
 }
 
 .featured-service-grid {
@@ -2192,7 +2203,14 @@ a {
   flex: 1;
   font-size: 13px;
   line-height: 1.5;
-  margin: 12px 0 18px;
+  margin: 12px 0 8px;
+}
+
+.service-card__duration {
+  color: var(--customer-muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 18px;
 }
 
 .service-card .customer-primary-button {
@@ -5415,4 +5433,10 @@ body .auth-main .auth-visual {
   .hero__visual {
     margin: 0 auto;
   }
+}
+
+/* Gunakan tombol password-toggle milik aplikasi, bukan kontrol bawaan Edge. */
+.auth-field .password-input-wrap input::-ms-reveal,
+.auth-field .password-input-wrap input::-ms-clear {
+  display: none;
 }
