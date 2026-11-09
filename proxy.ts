@@ -31,7 +31,11 @@ export async function proxy(request: NextRequest) {
   const session = token ? await verifySessionToken(token) : null;
   if (!session) {
     const loginPath = requiredRole === "pelanggan" ? "/login" : "/karyawan/login";
-    return noStore(NextResponse.redirect(new URL(loginPath, request.url)));
+    const loginUrl = new URL(loginPath, request.url);
+    if (requiredRole === "pelanggan") {
+      loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
+    }
+    return noStore(NextResponse.redirect(loginUrl));
   }
   if (session.role !== requiredRole) {
     return noStore(

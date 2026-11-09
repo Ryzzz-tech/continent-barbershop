@@ -32,6 +32,7 @@ type Notice = { kind: "error" | "success"; message: string };
 
 type AuthPageProps = {
   variant: AuthPageVariant;
+  redirectTo?: string;
 };
 
 const emptyValues: FormValues = {
@@ -256,7 +257,7 @@ function isAllEmpty(values: FormValues, termsAccepted: boolean) {
   );
 }
 
-export default function AuthPage({ variant }: AuthPageProps) {
+export default function AuthPage({ variant, redirectTo }: AuthPageProps) {
   const [values, setValues] = useState<FormValues>(emptyValues);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -270,6 +271,12 @@ export default function AuthPage({ variant }: AuthPageProps) {
   const isCustomer = variant === "customer";
   const isEmployee = variant === "employee";
   const isRegister = variant === "register";
+  const signInHref = redirectTo
+    ? `/login?next=${encodeURIComponent(redirectTo)}`
+    : "/login";
+  const registerHref = redirectTo
+    ? `/register?next=${encodeURIComponent(redirectTo)}`
+    : "/register";
 
   function updateValues(event: ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;
@@ -435,7 +442,11 @@ export default function AuthPage({ variant }: AuthPageProps) {
         return;
       }
 
-      window.location.assign(destinationByRole[expectedRole]);
+      window.location.assign(
+        isCustomer && redirectTo
+          ? redirectTo
+          : destinationByRole[expectedRole],
+      );
     } catch {
       setNotice({
         kind: "error",
@@ -599,7 +610,7 @@ export default function AuthPage({ variant }: AuthPageProps) {
               </button>
               <p className="auth-registration">
                 <span>Belum punya akun?</span>
-                <Link href="/register">Daftar Sekarang</Link>
+                <Link href={registerHref}>Daftar Sekarang</Link>
               </p>
             </form>
           )}
@@ -776,7 +787,7 @@ export default function AuthPage({ variant }: AuthPageProps) {
               {notice?.kind === "success" && (
                 <p className="auth-registration">
                   <span>Sudah memiliki akun?</span>
-                  <Link href="/login">Masuk sekarang</Link>
+                  <Link href={signInHref}>Masuk sekarang</Link>
                 </p>
               )}
             </form>
